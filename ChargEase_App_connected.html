@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ChargEase – Find. Book. Charge. Effortlessly.</title>
+<link rel="manifest" href="data:application/json,{}">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080f1a;--bg2:#0f1c2e;--bg3:#081016;--card:#0f1c2e;--border:#1e3a55;
+  --blue:#2563eb;--blue2:#1d4ed8;--green:#16a34a;--green2:#22c55e;--cyan:#06b6d4;
+  --text:#f0f9ff;--muted:#64748b;--dim:#334155;--red:#ef4444;--amber:#f59e0b;
+  --accent:#0ea5e9;--teal:#0d9488;
+}
+html,body{height:100%;width:100%;overflow:hidden;font-family:'Syne',sans-serif;background:var(--bg);color:var(--text)}
+
+/* =========== RESPONSIVE LAYOUT =========== */
+#app-root{width:100%;height:100dvh;position:relative;overflow:hidden;display:flex;flex-direction:column}
+
+/* =========== AUTH =========== */
+#auth-layer{position:absolute;inset:0;display:flex;z-index:100;background:var(--bg);overflow:auto}
+.auth-left{width:260px;background:linear-gradient(160deg,#050c16 0%,#080f1a 60%,#060b14 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;flex-shrink:0;border-right:1px solid var(--border)}
+.auth-logo{width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,#1d4ed8,#06b6d4);display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 0 32px rgba(6,182,212,.25)}
+.auth-logo svg{width:32px;height:32px}
+.auth-brand{font-size:22px;font-weight:800;color:var(--text);margin-bottom:2px;letter-spacing:-.02em}
+.auth-brand span{color:var(--cyan)}
+.auth-tag{font-size:11px;color:var(--muted);text-align:center;line-height:1.6;margin-bottom:28px;font-family:'DM Mono',monospace}
+.auth-feat{display:flex;flex-direction:column;gap:11px;width:100%}
+.af-item{display:flex;align-items:center;gap:10px}
+.af-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);flex-shrink:0;box-shadow:0 0 8px var(--cyan)}
+.af-txt{font-size:12px;color:var(--muted)}
+.auth-right{flex:1;padding:36px 44px;display:flex;flex-direction:column;justify-content:center;background:var(--bg);min-width:0}
+.prog{display:flex;gap:4px;margin-bottom:28px}
+.ps{flex:1;height:3px;border-radius:3px;background:var(--border)}
+.ps.done{background:var(--blue2)}.ps.cur{background:var(--cyan)}
+.slabel{font-size:10px;color:var(--cyan);letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px;font-family:'DM Mono',monospace}
+.stitle{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px;letter-spacing:-.02em}
+.ssub{font-size:13px;color:var(--muted);margin-bottom:24px}
+.field{margin-bottom:14px}
+.field label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px;letter-spacing:.04em;text-transform:uppercase;font-family:'DM Mono',monospace}
+.field input,.field select{width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:9px;background:#0a1625;color:var(--text);font-size:14px;font-family:'Syne',sans-serif;outline:none;transition:border-color .15s,box-shadow .15s}
+.field input:focus,.field select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(6,182,212,.1)}
+.field select option{background:#0a1625}
+.frow{display:flex;gap:8px}.frow .field{flex:1}
+.btn-primary{width:100%;padding:11px;background:linear-gradient(90deg,var(--blue2),var(--cyan));color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;transition:opacity .15s,transform .1s;letter-spacing:.01em}
+.btn-primary:hover{opacity:.92;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.switch-row{text-align:center;margin-top:16px;font-size:13px;color:var(--muted)}
+.switch-link{color:var(--cyan);cursor:pointer;font-weight:600}
+.otp-row{display:flex;gap:8px;margin-top:4px}
+.otp-box{width:42px;height:50px;border:1px solid var(--border);border-radius:9px;background:#0a1625;color:var(--text);font-size:22px;font-weight:700;text-align:center;outline:none;font-family:'DM Mono',monospace;transition:border-color .15s}
+.otp-box:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(6,182,212,.12)}
+.otp-box.filled{border-color:var(--blue2)}
+.timer-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+.timer-txt{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace}
+.resend-btn{font-size:12px;color:var(--cyan);cursor:pointer;font-weight:600;background:none;border:none;font-family:'Syne',sans-serif}
+.resend-btn:disabled{color:var(--muted);cursor:not-allowed}
+.auth-screen{display:none}
+.auth-screen.active{display:block}
+.success-ring{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#052e16,#065f46);border:2px solid var(--green2);display:flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 0 24px rgba(34,197,94,.2)}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:18px}
+.role-card{padding:14px;border:1px solid var(--border);border-radius:12px;background:#0a1625;cursor:pointer;transition:all .15s;text-align:center}
+.role-card:hover{border-color:var(--accent)}
+.role-card.sel{border-color:var(--cyan);background:rgba(6,182,212,.07);box-shadow:0 0 0 1px rgba(6,182,212,.2)}
+.role-card svg{width:24px;height:24px;margin-bottom:7px;color:var(--cyan)}
+.role-card .rname{font-size:13px;font-weight:700}
+.role-card .rdesc{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* =========== MAIN APP =========== */
+#main-app{position:absolute;inset:0;display:none;flex-direction:column}
+#main-app.visible{display:flex}
+
+/* TOPBAR */
+.topbar{height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0}
+.tb-logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#1d4ed8,#06b6d4);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 16px rgba(6,182,212,.2)}
+.tb-logo svg{width:18px;height:18px}
+.tb-brand{font-size:16px;font-weight:800;letter-spacing:-.02em;white-space:nowrap}
+.tb-brand span{color:var(--cyan)}
+.tb-badge{font-size:9px;background:var(--green2);color:#052e16;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:4px;font-family:'DM Mono',monospace}
+.tb-tabs{display:flex;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+.tb-tabs::-webkit-scrollbar{display:none}
+.tb-tab{padding:6px 10px;font-size:11px;font-weight:600;border-radius:7px;cursor:pointer;color:var(--muted);transition:all .15s;border:none;background:none;font-family:'Syne',sans-serif;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0}
+.tb-tab svg{width:13px;height:13px}
+.tb-tab.active{background:linear-gradient(90deg,var(--blue2),rgba(6,182,212,.8));color:#fff}
+.tb-tab:hover:not(.active){background:rgba(255,255,255,.05);color:var(--text)}
+.tb-user{margin-left:8px;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue2),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer}
+.tb-logout{font-size:11px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;transition:all .15s;white-space:nowrap}
+.tb-logout:hover{background:rgba(239,68,68,.1);color:var(--red)}
+.content{flex:1;overflow:hidden;position:relative}
+
+/* =========== MAP TAB =========== */
+#tab-map{position:absolute;inset:0;display:none}
+#tab-map.active{display:flex}
+.map-sidebar{width:270px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.ms-search{padding:12px;border-bottom:1px solid var(--border)}
+.ms-search input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-size:13px;font-family:'Syne',sans-serif;outline:none;transition:border-color .15s}
+.ms-search input:focus{border-color:var(--cyan)}
+.ms-filter{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap}
+.filter-chip{padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-size:11px;cursor:pointer;color:var(--muted);transition:all .15s;font-weight:500}
+.filter-chip.on{background:var(--blue2);border-color:var(--blue2);color:#fff}
+.ms-gps{padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--cyan);display:flex;align-items:center;gap:7px;font-family:'DM Mono',monospace}
+.gps-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);animation:gp .9s ease-in-out infinite alternate;box-shadow:0 0 8px var(--cyan)}
+@keyframes gp{from{opacity:.4}to{opacity:1}}
+.ms-list{flex:1;overflow-y:auto;padding:8px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.station-card{padding:13px;border-radius:11px;border:1px solid var(--border);background:var(--bg3);margin-bottom:7px;cursor:pointer;transition:all .15s}
+.station-card:hover,.station-card.sel{border-color:var(--cyan);background:rgba(6,182,212,.06)}
+.sc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.sc-name{font-size:13px;font-weight:600;line-height:1.3}
+.sc-dist{font-size:11px;color:var(--muted);white-space:nowrap;margin-left:6px}
+.sc-addr{font-size:11px;color:var(--muted);margin-bottom:7px}
+.sc-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.sc-tag{padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600}
+.tag-green{background:rgba(22,163,74,.2);color:var(--green2);border:1px solid rgba(22,163,74,.3)}
+.tag-amber{background:rgba(245,158,11,.2);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.tag-red{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.tag-blue{background:rgba(37,99,235,.2);color:#93c5fd;border:1px solid rgba(37,99,235,.3)}
+.sc-footer{display:flex;justify-content:space-between;align-items:center}
+.sc-slots{font-size:11px;color:var(--muted)}
+.sc-price{font-size:11px;font-weight:700;color:var(--cyan);font-family:'DM Mono',monospace}
+.sc-btn{font-size:11px;padding:4px 10px;border-radius:6px;background:var(--blue2);color:#fff;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-weight:600}
+.map-area{flex:1;position:relative;background:#06101a;overflow:hidden}
+.map-svg{width:100%;height:100%}
+.map-popup{position:absolute;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:15px;width:210px;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:10;display:none}
+.map-popup.show{display:block}
+.popup-name{font-size:13px;font-weight:700;margin-bottom:3px;line-height:1.3}
+.popup-addr{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.4}
+.popup-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px}
+.popup-row span:first-child{color:var(--muted)}
+.popup-row span:last-child{font-weight:600;font-family:'DM Mono',monospace}
+.popup-btns{display:flex;gap:7px;margin-top:12px}
+.popup-book{flex:1;padding:8px;background:linear-gradient(90deg,var(--blue2),var(--cyan));color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif}
+.popup-dir{flex:1;padding:8px;background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif}
+.popup-close{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
+.you-dot{animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{r:8}50%{r:11}}
+.ring1{animation:ring1 1.5s ease-in-out infinite}
+.ring2{animation:ring2 1.5s ease-in-out infinite}
+@keyframes ring1{0%{r:14;opacity:.5}100%{r:22;opacity:0}}
+@keyframes ring2{0%{r:14;opacity:.3}100%{r:28;opacity:0}}
+.recenter-btn{position:absolute;top:12px;right:12px;width:34px;height:34px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s}
+.recenter-btn:hover{background:var(--bg3)}
+.live-gps{position:absolute;bottom:12px;left:12px;background:rgba(8,15,26,.85);border:1px solid var(--border);border-radius:9px;padding:8px 13px;backdrop-filter:blur(8px)}
+.lg-title{color:var(--cyan);margin-bottom:2px;font-weight:700;font-size:11px}
+.lg-coord{font-family:'DM Mono',monospace;color:var(--muted);font-size:10px}
+
+/* =========== BOOKING TAB =========== */
+#tab-booking{position:absolute;inset:0;display:none;overflow-y:auto;padding:20px}
+#tab-booking.active{display:block}
+.booking-wrap{max-width:560px;margin:0 auto}
+.bk-header{margin-bottom:20px}
+.bk-title{font-size:20px;font-weight:700;margin-bottom:4px;letter-spacing:-.02em}
+.bk-sub{font-size:13px;color:var(--muted)}
+.bk-step{background:var(--bg2);border:1px solid var(--border);border-radius:13px;padding:17px;margin-bottom:12px}
+.bk-step-title{font-size:13px;font-weight:700;margin-bottom:13px;display:flex;align-items:center;gap:9px;letter-spacing:.01em}
+.bk-num{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--blue2),var(--cyan));font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700}
+.charger-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.charger-opt{padding:11px;border:1px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;transition:all .15s;background:var(--bg3)}
+.charger-opt:hover,.charger-opt.sel{border-color:var(--cyan);background:rgba(6,182,212,.07)}
+.co-icon{font-size:18px;margin-bottom:5px}
+.co-name{font-size:12px;font-weight:700}
+.co-speed{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+
+/* TIME SLOTS - FIXED */
+.date-nav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.date-btn{padding:4px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg3);color:var(--muted);font-size:11px;cursor:pointer;font-family:'Syne',sans-serif;transition:all .15s}
+.date-btn.active-date{border-color:var(--cyan);color:var(--cyan);background:rgba(6,182,212,.08)}
+.time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.time-slot{padding:9px 4px;border:1px solid var(--border);border-radius:8px;text-align:center;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;background:var(--bg3);font-family:'DM Mono',monospace;user-select:none}
+.time-slot.avail{color:var(--text)}
+.time-slot.avail:hover{border-color:var(--accent);background:rgba(14,165,233,.08)}
+.time-slot.avail.sel{border-color:var(--cyan);background:rgba(6,182,212,.15);color:var(--cyan);box-shadow:0 0 0 1px rgba(6,182,212,.3)}
+.time-slot.busy{border-color:rgba(239,68,68,.2);background:rgba(239,68,68,.05);color:rgba(239,68,68,.5);cursor:not-allowed;font-size:10px}
+.cost-card{background:var(--bg3);border-radius:10px;padding:15px;margin-top:12px;border:1px solid var(--border)}
+.cost-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px}
+.cost-row:last-child{margin-bottom:0;border-top:1px solid var(--border);padding-top:9px;font-weight:700}
+.cost-row span:first-child{color:var(--muted)}
+.cost-row span:last-child{font-family:'DM Mono',monospace}
+.confirm-btn{width:100%;padding:13px;background:linear-gradient(90deg,var(--green),#059669);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;margin-top:13px;transition:opacity .15s,transform .1s;letter-spacing:.01em}
+.confirm-btn:hover{opacity:.9;transform:translateY(-1px)}
+.confirm-btn:disabled{opacity:.3;cursor:not-allowed;transform:none;background:var(--dim)}
+
+/* =========== CONFIRMATION =========== */
+#tab-confirm{position:absolute;inset:0;display:none;overflow-y:auto;padding:20px}
+#tab-confirm.active{display:block}
+.conf-wrap{max-width:480px;margin:0 auto}
+.conf-card{background:var(--bg2);border:1px solid var(--green);border-radius:16px;padding:26px;text-align:center;margin-bottom:16px;box-shadow:0 0 40px rgba(22,163,74,.1)}
+.conf-icon{width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,#052e16,#065f46);border:2px solid var(--green2);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 0 24px rgba(34,197,94,.2)}
+.conf-title{font-size:20px;font-weight:800;margin-bottom:4px;letter-spacing:-.02em}
+.conf-ref{font-size:13px;color:var(--cyan);font-family:'DM Mono',monospace;margin-bottom:18px}
+.qr-box{width:128px;height:128px;background:#fff;border-radius:12px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;padding:8px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.qr-box canvas{width:100%;height:100%}
+.conf-details{background:var(--bg3);border-radius:11px;padding:15px;text-align:left;margin-bottom:16px;border:1px solid var(--border)}
+.cd-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;gap:10px}
+.cd-row:last-child{margin-bottom:0}
+.cd-row span:first-child{color:var(--muted);flex-shrink:0}
+.cd-row span:last-child{font-weight:600;text-align:right}
+.conf-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.conf-btn-secondary{padding:11px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:'Syne',sans-serif;transition:background .15s}
+.conf-btn-secondary:hover{background:rgba(255,255,255,.05)}
+.conf-btn-primary{padding:11px;border:none;border-radius:9px;background:linear-gradient(90deg,var(--blue2),var(--cyan));color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif}
+
+/* =========== DASHBOARD =========== */
+#tab-dashboard{position:absolute;inset:0;display:none;overflow-y:auto;padding:20px}
+#tab-dashboard.active{display:block}
+.dash-wrap{max-width:680px;margin:0 auto}
+.dash-title{font-size:20px;font-weight:800;margin-bottom:4px;letter-spacing:-.02em}
+.dash-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:15px}
+.stat-label{font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:500}
+.stat-val{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.stat-unit{font-size:11px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace}
+.section-title{font-size:14px;font-weight:700;margin-bottom:11px;letter-spacing:.01em;text-transform:uppercase;color:var(--muted)}
+.bk-history{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.bkh-item{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:13px;display:flex;gap:12px;align-items:center}
+.bkh-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.bkh-info{flex:1;min-width:0}
+.bkh-name{font-size:13px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bkh-meta{font-size:11px;color:var(--muted)}
+.bkh-right{text-align:right;flex-shrink:0}
+.bkh-cost{font-size:13px;font-weight:700;color:var(--cyan);font-family:'DM Mono',monospace}
+.bkh-status{font-size:11px;margin-top:3px;font-weight:600}
+.chart-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:17px;margin-bottom:20px}
+.rc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.rc-title{font-size:13px;font-weight:700}
+.bar-chart{display:flex;align-items:flex-end;gap:8px;height:80px}
+.bar{flex:1;border-radius:5px 5px 0 0;background:linear-gradient(180deg,var(--cyan),var(--blue2));transition:height .4s;cursor:pointer;position:relative}
+.bar:hover{filter:brightness(1.2)}
+.bar-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted);white-space:nowrap;font-family:'DM Mono',monospace}
+.bar-val{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text);white-space:nowrap}
+
+/* =========== ADMIN =========== */
+#tab-admin{position:absolute;inset:0;display:none;overflow-y:auto;padding:20px}
+#tab-admin.active{display:block}
+.admin-wrap{max-width:780px;margin:0 auto}
+.admin-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:12px}
+.admin-title{font-size:20px;font-weight:800;margin-bottom:4px;letter-spacing:-.02em}
+.admin-sub{font-size:13px;color:var(--muted)}
+.add-btn{padding:9px 16px;background:linear-gradient(90deg,var(--blue2),var(--cyan));color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;white-space:nowrap;flex-shrink:0}
+.admin-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.rev-chart{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:17px;margin-bottom:20px}
+.rc-toggle{display:flex;gap:4px}
+.rct-btn{padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Syne',sans-serif;font-weight:600;transition:all .15s}
+.rct-btn.on{background:var(--blue2);color:#fff;border-color:var(--blue2)}
+.rev-bars{display:flex;align-items:flex-end;gap:6px;height:90px}
+.rb{flex:1;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--teal),var(--blue2));position:relative;cursor:pointer;transition:filter .15s}
+.rb:hover{filter:brightness(1.2)}
+.rb-label{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted);white-space:nowrap;font-family:'DM Mono',monospace}
+.rb-val{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--text);white-space:nowrap}
+.stations-table{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.tbl-head{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:11px 15px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.tbl-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:12px 15px;border-bottom:1px solid var(--border);font-size:12px;align-items:center;transition:background .1s}
+.tbl-row:last-child{border-bottom:none}
+.tbl-row:hover{background:rgba(255,255,255,.02)}
+.tbl-name{font-weight:600}
+.tbl-status{display:flex;align-items:center;gap:5px}
+.status-dot{width:7px;height:7px;border-radius:50%}
+.util-bar-wrap{background:var(--border);border-radius:4px;height:5px;overflow:hidden;margin-top:3px}
+.util-bar{height:5px;border-radius:4px;background:linear-gradient(90deg,var(--green),var(--cyan))}
+.tbl-actions{display:flex;gap:6px;flex-wrap:wrap}
+.tbl-btn{padding:4px 9px;border-radius:6px;font-size:10px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Syne',sans-serif;font-weight:600;transition:all .15s}
+.tbl-btn:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.tbl-btn.del{border-color:rgba(239,68,68,.3);color:var(--red)}
+.tbl-btn.del:hover{background:rgba(239,68,68,.1)}
+.tbl-btn.edit{border-color:rgba(6,182,212,.3);color:var(--cyan)}
+
+/* =========== MODAL =========== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:500;padding:20px;backdrop-filter:blur(4px)}
+.modal-overlay.show{display:flex}
+.modal-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:26px;width:100%;max-width:460px;position:relative;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.8)}
+.modal-title{font-size:17px;font-weight:800;margin-bottom:18px;letter-spacing:-.01em}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.modal-close{position:absolute;top:14px;right:16px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:20px;background:rgba(255,255,255,.05);border:none;border-radius:7px}
+
+/* =========== FEEDBACK / COMPLAINTS =========== */
+#tab-feedback{position:absolute;inset:0;display:none;overflow-y:auto;padding:20px}
+#tab-feedback.active{display:block}
+.feedback-wrap{max-width:600px;margin:0 auto}
+.fb-tabs{display:flex;gap:6px;margin-bottom:20px}
+.fb-tab{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);transition:all .15s;font-family:'Syne',sans-serif}
+.fb-tab.active{background:linear-gradient(90deg,var(--blue2),rgba(6,182,212,.8));border-color:transparent;color:#fff}
+.fb-section{display:none}
+.fb-section.active{display:block}
+.fb-card{background:var(--bg2);border:1px solid var(--border);border-radius:13px;padding:20px;margin-bottom:12px}
+.star-row{display:flex;gap:6px;margin-bottom:16px}
+.star{font-size:28px;cursor:pointer;transition:transform .1s;filter:grayscale(1);opacity:.4}
+.star.active{filter:none;opacity:1;transform:scale(1.1)}
+.fb-textarea{width:100%;padding:11px;border:1px solid var(--border);border-radius:9px;background:#0a1625;color:var(--text);font-size:13px;font-family:'Syne',sans-serif;outline:none;resize:vertical;min-height:100px;transition:border-color .15s}
+.fb-textarea:focus{border-color:var(--cyan)}
+.fb-submit{padding:11px 24px;background:linear-gradient(90deg,var(--blue2),var(--cyan));color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;margin-top:12px;transition:opacity .15s}
+.fb-submit:hover{opacity:.9}
+.fb-submit:disabled{opacity:.4;cursor:not-allowed}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg2);border:1px solid var(--green);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;color:var(--green2);z-index:999;transition:transform .4s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.priority-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.priority-chip{padding:5px 12px;border-radius:20px;border:1px solid var(--border);font-size:11px;cursor:pointer;color:var(--muted);transition:all .15s;font-weight:600}
+.priority-chip.active-p{color:#fff}
+.priority-chip[data-p="low"].active-p{background:var(--green2);border-color:var(--green2)}
+.priority-chip[data-p="med"].active-p{background:var(--amber);border-color:var(--amber);color:#000}
+.priority-chip[data-p="high"].active-p{background:var(--red);border-color:var(--red)}
+
+/* =========== MOBILE RESPONSIVE =========== */
+@media(max-width:640px){
+  body,html{overflow:auto}
+  #app-root{height:100dvh;overflow:hidden}
+  .auth-left{display:none}
+  .auth-right{padding:28px 22px}
+  #main-app.visible{display:flex;flex-direction:column;height:100dvh}
+  .topbar{height:50px;padding:0 10px;gap:6px}
+  .tb-brand{font-size:14px}
+  .tb-tab{padding:5px 7px;font-size:10px;gap:3px}
+  .tb-tab svg{display:none}
+  .tb-logout{display:none}
+  #tab-map.active{flex-direction:column}
+  .map-sidebar{width:100%;height:220px;border-right:none;border-bottom:1px solid var(--border)}
+  .ms-list{padding:6px}
+  .station-card{margin-bottom:5px;padding:10px}
+  .map-area{flex:1;min-height:0}
+  .map-popup{width:180px;padding:12px;font-size:12px}
+  .stat-grid,.admin-stat-grid{grid-template-columns:1fr 1fr}
+  .tbl-head,.tbl-row{grid-template-columns:2fr 1fr 1fr}
+  .tbl-head div:nth-child(4),.tbl-head div:nth-child(5),
+  .tbl-row div:nth-child(4),.tbl-row div:nth-child(5){display:none}
+  .charger-grid{grid-template-columns:1fr 1fr 1fr}
+  .time-grid{grid-template-columns:repeat(3,1fr)}
+  .booking-wrap,.dash-wrap,.admin-wrap,.feedback-wrap,.conf-wrap{padding:0}
+  #tab-booking,#tab-dashboard,#tab-admin,#tab-feedback,#tab-confirm{padding:14px}
+  .modal-grid{grid-template-columns:1fr}
+  .otp-box{width:38px;height:46px;font-size:20px}
+}
+@media(max-width:380px){
+  .time-grid{grid-template-columns:repeat(2,1fr)}
+  .tb-badge{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app-root">
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓ Sent successfully!</div>
+
+<!-- AUTH LAYER -->
+<div id="auth-layer">
+  <div class="auth-left">
+    <div class="auth-logo">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="#fff" stroke="#fff" stroke-width=".5" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="auth-brand">Charg<span>Ease</span></div>
+    <div class="auth-tag">FIND. BOOK. CHARGE. EFFORTLESSLY.</div>
+    <div class="auth-feat">
+      <div class="af-item"><div class="af-dot"></div><div class="af-txt">Discover nearby EV stations</div></div>
+      <div class="af-item"><div class="af-dot"></div><div class="af-txt">Book charging slots instantly</div></div>
+      <div class="af-item"><div class="af-dot"></div><div class="af-txt">Live slot availability</div></div>
+      <div class="af-item"><div class="af-dot"></div><div class="af-txt">Get directions to station</div></div>
+      <div class="af-item"><div class="af-dot"></div><div class="af-txt">Manage your bookings</div></div>
+    </div>
+  </div>
+  <div class="auth-right">
+
+    <!-- SCREEN: Mode select -->
+    <div class="auth-screen active" id="as-mode">
+      <div class="slabel">Welcome to ChargEase</div>
+      <div class="stitle">Get started</div>
+      <div class="ssub">Sign in or create your account to continue</div>
+      <div class="role-grid">
+        <div class="role-card sel" onclick="selectRole('user',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <div class="rname">EV Driver</div><div class="rdesc">Book & navigate</div>
+        </div>
+        <div class="role-card" onclick="selectRole('admin',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <div class="rname">Admin</div><div class="rdesc">Manage stations</div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="goToScreen('as-phone')">Continue →</button>
+      <div class="switch-row">New user? <span class="switch-link" onclick="goToScreen('as-register')">Register here</span></div>
+    </div>
+
+    <!-- SCREEN: Register -->
+    <div class="auth-screen" id="as-register">
+      <div class="prog"><div class="ps done"></div><div class="ps cur"></div><div class="ps"></div></div>
+      <div class="slabel">Step 1 of 3</div>
+      <div class="stitle">Create account</div>
+      <div class="ssub">Enter your details to get started</div>
+      <div class="frow">
+        <div class="field"><label>First name</label><input type="text" id="reg-first" placeholder="Rahul"></div>
+        <div class="field"><label>Last name</label><input type="text" id="reg-last" placeholder="Sharma"></div>
+      </div>
+      <div class="field"><label>Email</label><input type="email" id="reg-email" placeholder="rahul@example.com"></div>
+      <div class="field"><label>Phone number</label><input type="tel" id="reg-phone" placeholder="98765 43210" maxlength="10"></div>
+      <div class="field"><label>EV Model</label><input type="text" id="reg-ev" placeholder="Tata Nexon EV / MG ZS EV"></div>
+      <button class="btn-primary" onclick="registerUser()">Send OTP →</button>
+      <div class="switch-row">Already have an account? <span class="switch-link" onclick="goToScreen('as-phone')">Sign in</span></div>
+    </div>
+
+    <!-- SCREEN: Phone (login) -->
+    <div class="auth-screen" id="as-phone">
+      <div class="prog"><div class="ps done"></div><div class="ps cur"></div><div class="ps"></div></div>
+      <div class="slabel">Step 1 of 3</div>
+      <div class="stitle">Sign in</div>
+      <div class="ssub">Enter your mobile number to receive an OTP</div>
+      <div class="field"><label>Mobile number</label>
+        <input type="tel" id="phone-input" placeholder="98765 43210" maxlength="10"
+          oninput="document.getElementById('send-otp-btn').disabled=this.value.length<10">
+      </div>
+      <button class="btn-primary" id="send-otp-btn" disabled onclick="sendOTP()">Send OTP →</button>
+      <div class="switch-row">No account? <span class="switch-link" onclick="goToScreen('as-register')">Register</span></div>
+    </div>
+
+    <!-- SCREEN: OTP -->
+    <div class="auth-screen" id="as-otp">
+      <div class="prog"><div class="ps done"></div><div class="ps done"></div><div class="ps cur"></div></div>
+      <div class="slabel">Step 2 of 3</div>
+      <div class="stitle">Enter OTP</div>
+      <div class="ssub">Sent to <span id="otp-phone" style="color:var(--text);font-weight:700"></span></div>
+      <div class="otp-row">
+        <input class="otp-box" maxlength="1" type="tel" id="o1" oninput="otpNext(this,'o2')">
+        <input class="otp-box" maxlength="1" type="tel" id="o2" oninput="otpNext(this,'o3')">
+        <input class="otp-box" maxlength="1" type="tel" id="o3" oninput="otpNext(this,'o4')">
+        <input class="otp-box" maxlength="1" type="tel" id="o4" oninput="otpNext(this,'o5')">
+        <input class="otp-box" maxlength="1" type="tel" id="o5" oninput="otpNext(this,'o6')">
+        <input class="otp-box" maxlength="1" type="tel" id="o6" oninput="verifyOTP()">
+      </div>
+      <div class="timer-row">
+        <span class="timer-txt" id="timer-txt">Resend in 30s</span>
+        <button class="resend-btn" id="resend-btn" disabled onclick="resendOTP()">Resend OTP</button>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted)">💡 Enter any 6 digits to verify (demo)</div>
+    </div>
+
+    <!-- SCREEN: Success -->
+    <div class="auth-screen" id="as-success">
+      <div class="success-ring">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="stitle">Login successful!</div>
+      <div class="ssub">Welcome to ChargEase. Opening your dashboard...</div>
+      <div style="margin-top:20px;height:4px;background:var(--border);border-radius:3px;overflow:hidden">
+        <div id="load-bar" style="height:100%;width:0;background:linear-gradient(90deg,var(--green2),var(--cyan));border-radius:3px;transition:width 1.5s"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app">
+  <div class="topbar">
+    <div class="tb-logo">
+      <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="#fff"/></svg>
+    </div>
+    <div class="tb-brand">Charg<span style="color:var(--cyan)">Ease</span> <span class="tb-badge">LIVE</span></div>
+    <div class="tb-tabs">
+      <button class="tb-tab active" onclick="switchTab('map',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/></svg>Map
+      </button>
+      <button class="tb-tab" onclick="switchTab('booking',this)" id="tab-btn-booking">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Book
+      </button>
+      <button class="tb-tab" onclick="switchTab('dashboard',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Dashboard
+      </button>
+      <button class="tb-tab" onclick="switchTab('feedback',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Feedback
+      </button>
+      <button class="tb-tab" id="admin-tab" onclick="switchTab('admin',this)" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Admin
+      </button>
+    </div>
+    <div class="tb-user">
+      <div class="tb-avatar" id="user-avatar">U</div>
+      <div class="tb-logout" onclick="logout()">Sign out</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- MAP TAB -->
+    <div id="tab-map" class="active">
+      <div class="map-sidebar">
+        <div class="ms-search"><input type="text" placeholder="Search stations in Bhopal..." id="map-search"></div>
+        <div class="ms-filter">
+          <div class="filter-chip on" onclick="toggleFilter(this,'fast')">Fast DC</div>
+          <div class="filter-chip on" onclick="toggleFilter(this,'ac')">AC</div>
+          <div class="filter-chip" onclick="toggleFilter(this,'avail')">Available only</div>
+        </div>
+        <div class="ms-gps"><div class="gps-dot"></div>Live GPS · Bhopal, MP</div>
+        <div class="ms-list" id="station-list"></div>
+      </div>
+      <div class="map-area">
+        <svg class="map-svg" id="map-svg" viewBox="0 0 500 548"></svg>
+        <div class="map-popup" id="map-popup">
+          <button class="popup-close" onclick="closePopup()">×</button>
+          <div class="popup-name" id="pp-name"></div>
+          <div class="popup-addr" id="pp-addr"></div>
+          <div class="popup-row"><span>Available slots</span><span id="pp-slots"></span></div>
+          <div class="popup-row"><span>Charger type</span><span id="pp-type"></span></div>
+          <div class="popup-row"><span>Price</span><span id="pp-price"></span></div>
+          <div class="popup-row"><span>Wait time</span><span id="pp-wait"></span></div>
+          <div class="popup-row"><span>Rating</span><span id="pp-rating"></span></div>
+          <div class="popup-btns">
+            <button class="popup-book" onclick="openBooking()">Book Slot →</button>
+            <button class="popup-dir" onclick="openMapsFromPopup()">🗺 Directions</button>
+          </div>
+        </div>
+        <div class="recenter-btn" onclick="recenter()" title="Recenter map">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
+        </div>
+        <div class="live-gps">
+          <div class="lg-title">● GPS Active</div>
+          <div class="lg-coord" id="gps-coord">23.2599° N, 77.4126° E</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOKING TAB -->
+    <div id="tab-booking">
+      <div class="booking-wrap">
+        <div class="bk-header">
+          <div class="bk-title" id="bk-station-title">Select a station from the map</div>
+          <div class="bk-sub" id="bk-station-addr">Go to Map → click a station → Book Slot</div>
+        </div>
+
+        <div class="bk-step">
+          <div class="bk-step-title"><div class="bk-num">1</div>Choose charger type</div>
+          <div class="charger-grid">
+            <div class="charger-opt" onclick="selCharger(this,'CCS2',150,'Fast DC')"><div class="co-icon">⚡</div><div class="co-name">CCS2</div><div class="co-speed">150 kW</div></div>
+            <div class="charger-opt" onclick="selCharger(this,'Type2',22,'AC')"><div class="co-icon">🔌</div><div class="co-name">Type 2</div><div class="co-speed">22 kW</div></div>
+            <div class="charger-opt" onclick="selCharger(this,'CHAdeMO',50,'Fast DC')"><div class="co-icon">⚙️</div><div class="co-name">CHAdeMO</div><div class="co-speed">50 kW</div></div>
+          </div>
+        </div>
+
+        <div class="bk-step">
+          <div class="bk-step-title"><div class="bk-num">2</div>Select date & time slot</div>
+          <div class="date-nav" id="date-nav"></div>
+          <div class="time-grid" id="time-grid"></div>
+        </div>
+
+        <div class="bk-step">
+          <div class="bk-step-title"><div class="bk-num">3</div>Cost estimate</div>
+          <div class="cost-card">
+            <div class="cost-row"><span>Duration</span><span>1 hour</span></div>
+            <div class="cost-row"><span>Energy rate</span><span id="bk-rate">₹12/kWh</span></div>
+            <div class="cost-row"><span>Estimated units</span><span id="bk-units">22 kWh</span></div>
+            <div class="cost-row"><span>Service fee</span><span>₹15</span></div>
+            <div class="cost-row"><span>Total estimate</span><span id="bk-total" style="color:var(--cyan)">₹279</span></div>
+          </div>
+        </div>
+
+        <button class="confirm-btn" id="confirm-btn" disabled onclick="confirmBooking()">⚡ Confirm Booking</button>
+      </div>
+    </div>
+
+    <!-- CONFIRMATION TAB -->
+    <div id="tab-confirm">
+      <div class="conf-wrap">
+        <div class="conf-card">
+          <div class="conf-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="conf-title">Booking Confirmed! ⚡</div>
+          <div class="conf-ref" id="conf-ref">CE-2026-00001</div>
+          <div class="qr-box"><canvas id="qr-canvas" width="112" height="112"></canvas></div>
+          <div class="conf-details">
+            <div class="cd-row"><span>Station</span><span id="cd-station"></span></div>
+            <div class="cd-row"><span>Date</span><span id="cd-date"></span></div>
+            <div class="cd-row"><span>Time</span><span id="cd-time"></span></div>
+            <div class="cd-row"><span>Charger</span><span id="cd-charger"></span></div>
+            <div class="cd-row"><span>Est. cost</span><span id="cd-cost" style="color:var(--cyan)"></span></div>
+          </div>
+          <div class="conf-btns">
+            <button class="conf-btn-secondary" onclick="switchTab('dashboard',null)">My bookings</button>
+            <button class="conf-btn-primary" onclick="openMapsFromBooking()">🗺 Get Directions</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD TAB -->
+    <div id="tab-dashboard">
+      <div class="dash-wrap">
+        <div class="dash-title" id="dash-username">My Dashboard</div>
+        <div class="dash-sub">Your ChargEase charging overview</div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-label">Total bookings</div><div class="stat-val" id="ds-bookings">5</div><div class="stat-unit">all time</div></div>
+          <div class="stat-card"><div class="stat-label">Energy charged</div><div class="stat-val">247</div><div class="stat-unit">kWh total</div></div>
+          <div class="stat-card"><div class="stat-label">Spent</div><div class="stat-val">₹3,240</div><div class="stat-unit">total</div></div>
+          <div class="stat-card"><div class="stat-label">CO₂ saved</div><div class="stat-val" style="color:var(--green2)">142</div><div class="stat-unit">kg vs petrol</div></div>
+        </div>
+        <div class="chart-box">
+          <div class="rc-head"><div class="rc-title">Weekly activity (charges)</div></div>
+          <div style="margin-top:24px;position:relative">
+            <div class="bar-chart" id="dash-bars"></div>
+            <div style="display:flex;gap:8px;margin-top:22px;width:100%" id="dash-bar-labels"></div>
+          </div>
+        </div>
+        <div class="section-title">Booking history</div>
+        <div class="bk-history" id="bk-history-list"></div>
+      </div>
+    </div>
+
+    <!-- FEEDBACK TAB -->
+    <div id="tab-feedback">
+      <div class="feedback-wrap">
+        <div class="dash-title" style="margin-bottom:6px">Feedback & Complaints</div>
+        <div class="dash-sub" style="margin-bottom:18px">Your input helps us improve ChargEase</div>
+        <div class="fb-tabs">
+          <button class="fb-tab active" onclick="switchFbTab('feedback',this)">⭐ Feedback</button>
+          <button class="fb-tab" onclick="switchFbTab('complaint',this)">🚨 Complaint</button>
+        </div>
+
+        <!-- FEEDBACK -->
+        <div class="fb-section active" id="fbs-feedback">
+          <div class="fb-card">
+            <div class="bk-step-title" style="margin-bottom:12px"><div class="bk-num">1</div>Rate your experience</div>
+            <div class="star-row" id="star-row">
+              <span class="star" onclick="setStar(1)">⭐</span>
+              <span class="star" onclick="setStar(2)">⭐</span>
+              <span class="star" onclick="setStar(3)">⭐</span>
+              <span class="star" onclick="setStar(4)">⭐</span>
+              <span class="star" onclick="setStar(5)">⭐</span>
+            </div>
+          </div>
+          <div class="fb-card">
+            <div class="bk-step-title" style="margin-bottom:12px"><div class="bk-num">2</div>Tell us more</div>
+            <div class="field"><label>Related station (optional)</label>
+              <select id="fb-station">
+                <option value="">— Select a station —</option>
+              </select>
+            </div>
+            <div class="field"><label>Your feedback</label>
+              <textarea class="fb-textarea" id="fb-message" placeholder="What did you like? What can we improve?"></textarea>
+            </div>
+            <div class="field"><label>Your email (optional)</label>
+              <input type="email" id="fb-email" placeholder="your@email.com">
+            </div>
+            <button class="fb-submit" id="fb-submit-btn" onclick="submitFeedback()">Send Feedback 📨</button>
+          </div>
+        </div>
+
+        <!-- COMPLAINT -->
+        <div class="fb-section" id="fbs-complaint">
+          <div class="fb-card">
+            <div class="bk-step-title" style="margin-bottom:12px"><div class="bk-num">1</div>Complaint details</div>
+            <div class="field"><label>Station involved</label>
+              <select id="cmp-station">
+                <option value="">— Select a station —</option>
+              </select>
+            </div>
+            <div class="field"><label>Issue type</label>
+              <select id="cmp-type">
+                <option value="">— Select issue type —</option>
+                <option>Charger not working</option>
+                <option>Slot was booked but unavailable</option>
+                <option>Payment issue</option>
+                <option>Safety concern</option>
+                <option>Long wait time</option>
+                <option>App / technical problem</option>
+                <option>Staff behaviour</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:10px"><label>Priority level</label>
+              <div class="priority-row">
+                <div class="priority-chip" data-p="low" onclick="setPriority(this,'low')">🟢 Low</div>
+                <div class="priority-chip" data-p="med" onclick="setPriority(this,'med')">🟡 Medium</div>
+                <div class="priority-chip" data-p="high" onclick="setPriority(this,'high')">🔴 High</div>
+              </div>
+            </div>
+            <div class="field"><label>Describe the issue</label>
+              <textarea class="fb-textarea" id="cmp-message" placeholder="Please describe what happened in detail..."></textarea>
+            </div>
+            <div class="field"><label>Your contact email</label>
+              <input type="email" id="cmp-email" placeholder="your@email.com">
+            </div>
+            <button class="fb-submit" id="cmp-submit-btn" onclick="submitComplaint()">Submit Complaint 🚨</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ADMIN TAB -->
+    <div id="tab-admin">
+      <div class="admin-wrap">
+        <div class="admin-header">
+          <div>
+            <div class="admin-title">Admin Dashboard</div>
+            <div class="admin-sub">Station & revenue management · ChargEase Bhopal</div>
+          </div>
+          <button class="add-btn" onclick="showAddModal()">+ Add Station</button>
+        </div>
+        <div class="admin-stat-grid">
+          <div class="stat-card"><div class="stat-label">Total stations</div><div class="stat-val" id="adm-stations">8</div><div class="stat-unit">in Bhopal</div></div>
+          <div class="stat-card"><div class="stat-label">Active bookings</div><div class="stat-val" style="color:var(--green2)">23</div><div class="stat-unit">right now</div></div>
+          <div class="stat-card"><div class="stat-label">Today's revenue</div><div class="stat-val" style="color:var(--cyan)">₹8,420</div><div class="stat-unit">+12% vs yesterday</div></div>
+          <div class="stat-card"><div class="stat-label">Avg utilization</div><div class="stat-val">67%</div><div class="stat-unit">across all stations</div></div>
+        </div>
+        <div class="rev-chart">
+          <div class="rc-head">
+            <div class="rc-title">Revenue trend</div>
+            <div class="rc-toggle">
+              <button class="rct-btn on" onclick="toggleRevPeriod(this,'week')">Week</button>
+              <button class="rct-btn" onclick="toggleRevPeriod(this,'month')">Month</button>
+            </div>
+          </div>
+          <div style="margin-top:20px;position:relative">
+            <div class="rev-bars" id="rev-bars"></div>
+            <div id="rev-bar-labels" style="display:flex;gap:6px;margin-top:18px;width:100%"></div>
+          </div>
+        </div>
+        <div class="section-title">Station management</div>
+        <div class="stations-table">
+          <div class="tbl-head"><div>Station</div><div>Slots</div><div>Status</div><div>Utilization</div><div>Actions</div></div>
+          <div id="station-tbl"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ADD/EDIT STATION MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeAddModal()">×</button>
+    <div class="modal-title" id="modal-title">Add New Station</div>
+    <div class="modal-grid">
+      <div class="field"><label>Station name</label><input type="text" id="new-name" placeholder="ChargEase TT Nagar"></div>
+      <div class="field"><label>Area / Address</label><input type="text" id="new-area" placeholder="TT Nagar, Bhopal"></div>
+      <div class="field"><label>Total slots</label><input type="number" id="new-slots" placeholder="10" min="1"></div>
+      <div class="field"><label>Rate (₹/kWh)</label><input type="number" id="new-rate" placeholder="12" min="1"></div>
+      <div class="field"><label>Latitude</label><input type="number" id="new-lat" placeholder="23.2599" step="0.0001"></div>
+      <div class="field"><label>Longitude</label><input type="number" id="new-lng" placeholder="77.4126" step="0.0001"></div>
+    </div>
+    <div class="field"><label>Charger types (comma separated)</label><input type="text" id="new-types" placeholder="CCS2, Type2, CHAdeMO"></div>
+    <div class="field"><label>Status</label>
+      <select id="new-status">
+        <option value="available">✅ Available</option>
+        <option value="limited">🟡 Limited</option>
+        <option value="full">🔴 Full</option>
+        <option value="offline">⚫ Offline</option>
+      </select>
+    </div>
+    <input type="hidden" id="edit-station-id" value="">
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="conf-btn-secondary" style="flex:1" onclick="closeAddModal()">Cancel</button>
+      <button class="conf-btn-primary" style="flex:1" onclick="saveStation()">Save Station</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ STATE ============
+var userRole='user';
+var currentStation=null;
+var selChargerType=null;
+var selTimeSlot=null;
+var selDate=null;
+var bookingCount=5;
+var timerInterval=null;
+var slotInterval=null;
+var gpsInterval=null;
+var userFirstName='User';
+var starRating=0;
+var complaintPriority='';
+var editingStationId=null;
+
+// ============ API CONNECTION ============
+var API = 'https://chargeease-backend-production.up.railway.app';
+var authToken = null;
+
+// Station GPS coordinates — loaded from real database
+var stations=[];
+
+// Map positions for each station (visual only)
+var stationMapPos=[
+  {lat:260,lng:170},{lat:180,lng:290},{lat:310,lng:130},{lat:400,lng:240},
+  {lat:200,lng:200},{lat:150,lng:360},{lat:350,lng:380},{lat:450,lng:160}
+];
+
+// Load stations from real backend API
+async function loadStationsFromAPI(){
+  try {
+    var res = await fetch(API + '/api/stations');
+    var data = await res.json();
+    stations = data.map(function(st, i){
+      var pos = stationMapPos[i] || {lat:250, lng:250};
+      var color = st.status==='available'?'#22C55E':st.status==='limited'?'#F59E0B':st.status==='full'?'#EF4444':'#475569';
+      return {
+        id: st.id,
+        name: st.name,
+        addr: st.address,
+        lat: pos.lat,
+        lng: pos.lng,
+        gpsLat: st.latitude,
+        gpsLng: st.longitude,
+        slots: st.available_slots,
+        total: st.total_slots,
+        type: st.charger_types,
+        price: '₹' + st.price_per_kwh + '/kWh',
+        wait: st.available_slots > 0 ? '~' + Math.round(10/st.available_slots*2) + ' min' : 'Full',
+        rating: '4.5 ★',
+        color: color,
+        status: st.status,
+        util: Math.round((1 - st.available_slots/st.total_slots)*100)
+      };
+    });
+    // Refresh map and list after loading
+    if(document.getElementById('map-svg')) { initMap(); initStationList(); populateStationSelects(); }
+  } catch(e) {
+    console.log('API not reachable, using offline mode:', e);
+    // Fallback to demo data if API is down
+    stations=[
+      {id:1,name:'ChargEase DB City Mall',addr:'DB City Mall, Arera Colony, Bhopal',lat:260,lng:170,gpsLat:23.2108,gpsLng:77.4360,slots:4,total:6,type:'Fast DC · CCS2',price:'₹14/kWh',wait:'~8 min',rating:'4.8 ★',color:'#22C55E',status:'available',util:68},
+      {id:2,name:'Bharat Petroleum EV Hub',addr:'Hoshangabad Road, Bhopal',lat:180,lng:290,gpsLat:23.2130,gpsLng:77.4700,slots:2,total:4,type:'AC · Type2',price:'₹11/kWh',wait:'~20 min',rating:'4.5 ★',color:'#F59E0B',status:'limited',util:50},
+      {id:3,name:'MPEB Green Charge Centre',addr:'TT Nagar, Bhopal',lat:310,lng:130,gpsLat:23.2335,gpsLng:77.4000,slots:0,total:8,type:'Fast DC · CHAdeMO',price:'₹15/kWh',wait:'Full',rating:'4.3 ★',color:'#EF4444',status:'full',util:100},
+      {id:4,name:'Tata Power EV Station',addr:'Kolar Road, Bhopal',lat:400,lng:240,gpsLat:23.1800,gpsLng:77.4300,slots:5,total:8,type:'Fast DC · CCS2',price:'₹13/kWh',wait:'~5 min',rating:'4.9 ★',color:'#22C55E',status:'available',util:37},
+      {id:5,name:'Ather Grid Bhopal',addr:'MP Nagar Zone-1, Bhopal',lat:200,lng:200,gpsLat:23.2300,gpsLng:77.4340,slots:3,total:5,type:'AC · Type2',price:'₹10/kWh',wait:'~15 min',rating:'4.6 ★',color:'#22C55E',status:'available',util:60},
+      {id:6,name:'Adani EV Charge Point',addr:'Shyamla Hills, Bhopal',lat:150,lng:360,gpsLat:23.2500,gpsLng:77.4600,slots:1,total:4,type:'Fast DC · CCS2',price:'₹16/kWh',wait:'~35 min',rating:'4.2 ★',color:'#F59E0B',status:'limited',util:75},
+      {id:7,name:'NTPC Vidyut Kendra',addr:'Govindpura Industrial Area, Bhopal',lat:350,lng:380,gpsLat:23.2600,gpsLng:77.4900,slots:6,total:10,type:'Fast DC + AC',price:'₹12/kWh',wait:'~2 min',rating:'4.7 ★',color:'#22C55E',status:'available',util:40},
+      {id:8,name:'ChargEase Bittan Market',addr:'Bittan Market, Bhopal',lat:450,lng:160,gpsLat:23.2000,gpsLng:77.4100,slots:2,total:4,type:'AC · Type2',price:'₹9/kWh',wait:'~25 min',rating:'4.4 ★',color:'#F59E0B',status:'limited',util:50}
+    ];
+  }
+}
+
+var weeklyData=[2,5,3,8,4,6,1];
+var weekDays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+var revWeek=[5200,6100,4800,7200,8400,9100,8420];
+var revWeekLabels=['Mon','Tue','Wed','Thu','Fri','Sat','Today'];
+var revMonth=[42000,51000,38000,62000,55000,70000,68000,58000,71000,80000,75000,84200];
+var revMonthLabels=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var revPeriod='week';
+
+var bookingHistory=[
+  {station:'Tata Power EV Station',date:'26 Apr 2026',time:'3:00 PM',charger:'CCS2',cost:'₹312',status:'completed'},
+  {station:'Ather Grid Bhopal',date:'22 Apr 2026',time:'10:00 AM',charger:'Type 2',cost:'₹187',status:'completed'},
+  {station:'ChargEase DB City Mall',date:'18 Apr 2026',time:'5:00 PM',charger:'CCS2',cost:'₹420',status:'completed'},
+  {station:'NTPC Vidyut Kendra',date:'14 Apr 2026',time:'2:00 PM',charger:'CCS2',cost:'₹264',status:'completed'},
+  {station:'Bharat Petroleum EV Hub',date:'10 Apr 2026',time:'11:00 AM',charger:'Type 2',cost:'₹198',status:'cancelled'},
+];
+
+// ============ AUTH ============
+function goToScreen(id){
+  document.querySelectorAll('.auth-screen').forEach(function(s){s.classList.remove('active')});
+  document.getElementById(id).classList.add('active');
+}
+
+function selectRole(role,el){
+  userRole=role;
+  document.querySelectorAll('.role-card').forEach(function(c){c.classList.remove('sel')});
+  el.classList.add('sel');
+}
+
+function registerUser(){
+  var first=document.getElementById('reg-first').value.trim();
+  var phone=document.getElementById('reg-phone').value.trim();
+  if(!first||phone.length<10){showToast('Please fill all required fields','error');return;}
+  userFirstName=first;
+  document.getElementById('otp-phone').textContent='+91 '+phone;
+  goToScreen('as-otp');startTimer();
+  setTimeout(function(){document.getElementById('o1').focus()},100);
+}
+
+function sendOTP(){
+  var phone=document.getElementById('phone-input').value.trim();
+  if(phone.length<10){return;}
+  document.getElementById('otp-phone').textContent='+91 '+phone;
+  goToScreen('as-otp');startTimer();
+  setTimeout(function(){document.getElementById('o1').focus()},100);
+}
+
+function otpNext(el,nextId){
+  if(el.value.length===1){
+    el.classList.add('filled');
+    var next=document.getElementById(nextId);
+    if(next)next.focus();
+  }
+}
+
+function verifyOTP(){
+  var otp='';
+  ['o1','o2','o3','o4','o5','o6'].forEach(function(id){otp+=document.getElementById(id).value});
+  if(otp.length===6){
+    clearInterval(timerInterval);
+    goToScreen('as-success');
+    var bar=document.getElementById('load-bar');
+    setTimeout(function(){bar.style.width='100%'},50);
+    setTimeout(function(){launchApp()},1700);
+  }
+}
+
+var timerSec=30;
+function startTimer(){
+  timerSec=30;clearInterval(timerInterval);
+  document.getElementById('resend-btn').disabled=true;
+  timerInterval=setInterval(function(){
+    timerSec--;
+    document.getElementById('timer-txt').textContent='Resend in '+timerSec+'s';
+    if(timerSec<=0){
+      clearInterval(timerInterval);
+      document.getElementById('timer-txt').textContent='OTP expired';
+      document.getElementById('resend-btn').disabled=false;
+    }
+  },1000);
+}
+
+function resendOTP(){
+  ['o1','o2','o3','o4','o5','o6'].forEach(function(id){
+    var el=document.getElementById(id);el.value='';el.classList.remove('filled');
+  });
+  startTimer();document.getElementById('o1').focus();
+}
+
+async function launchApp(){
+  document.getElementById('auth-layer').style.display='none';
+  var app=document.getElementById('main-app');
+  app.classList.add('visible');
+  if(userRole==='admin'){
+    document.getElementById('admin-tab').style.display='flex';
+  }
+  document.getElementById('user-avatar').textContent=userFirstName.charAt(0).toUpperCase();
+  document.getElementById('dash-username').textContent=userFirstName+"'s Dashboard";
+  await loadStationsFromAPI();
+  populateStationSelects();
+  initMap();
+  initStationList();
+  initDashboard();
+  initAdmin();
+  initDateNav();
+  startSlotRefresh();
+  startGPSUpdate();
+}
+
+function logout(){
+  document.getElementById('auth-layer').style.display='flex';
+  document.getElementById('main-app').classList.remove('visible');
+  clearInterval(slotInterval);clearInterval(gpsInterval);
+  ['o1','o2','o3','o4','o5','o6'].forEach(function(id){
+    var el=document.getElementById(id);if(el){el.value='';el.classList.remove('filled');}
+  });
+  goToScreen('as-mode');
+  document.getElementById('phone-input').value='';
+  document.getElementById('send-otp-btn').disabled=true;
+}
+
+// ============ TABS ============
+function switchTab(name,btn){
+  ['map','booking','confirm','dashboard','admin','feedback'].forEach(function(t){
+    var el=document.getElementById('tab-'+t);if(el)el.classList.remove('active');
+  });
+  var target=document.getElementById('tab-'+name);
+  if(target)target.classList.add('active');
+  document.querySelectorAll('.tb-tab').forEach(function(b){b.classList.remove('active')});
+  if(btn)btn.classList.add('active');
+  closePopup();
+}
+
+// ============ MAP ============
+function initMap(){
+  var svg=document.getElementById('map-svg');
+  svg.innerHTML='';
+  var defs='<defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#0d2035" stroke-width="0.5"/></pattern></defs>';
+  var bg='<rect width="500" height="548" fill="#06101a"/><rect width="500" height="548" fill="url(#grid)"/>';
+  var roads='<path d="M0,280 Q120,260 250,270 Q380,280 500,265" fill="none" stroke="#0d2a42" stroke-width="20" stroke-linecap="round" opacity=".8"/><path d="M0,280 Q120,260 250,270 Q380,280 500,265" fill="none" stroke="#1a4a6e" stroke-width="2" stroke-linecap="round" opacity=".5"/><path d="M180,0 Q190,120 200,270 Q205,380 220,548" fill="none" stroke="#0d2a42" stroke-width="16" stroke-linecap="round" opacity=".8"/><path d="M180,0 Q190,120 200,270 Q205,380 220,548" fill="none" stroke="#1a4a6e" stroke-width="1.5" stroke-linecap="round" opacity=".5"/><path d="M0,400 Q200,390 350,420 Q420,435 500,420" fill="none" stroke="#0d2a42" stroke-width="12" opacity=".6"/><path d="M280,0 Q290,150 310,300 Q320,400 340,548" fill="none" stroke="#0d2a42" stroke-width="12" opacity=".5"/>';
+  var labels='<text x="230" y="275" fill="#1a4a6e" font-size="9" font-family="monospace" opacity=".7">HOSHANGABAD RD</text><text x="148" y="200" fill="#1a4a6e" font-size="8" font-family="monospace" opacity=".6" transform="rotate(-90,148,200)">MP NAGAR</text><text x="50" y="380" fill="#1a4a6e" font-size="8" font-family="monospace" opacity=".5">ARERA COLONY</text><text x="355" y="430" fill="#1a4a6e" font-size="8" font-family="monospace" opacity=".5">GOVINDPURA</text>';
+  var you=250,youy=280;
+  var youDot='<circle cx="'+you+'" cy="'+youy+'" r="26" fill="#06b6d4" opacity="0.05" class="ring2"/><circle cx="'+you+'" cy="'+youy+'" r="18" fill="#06b6d4" opacity="0.08" class="ring1"/><circle cx="'+you+'" cy="'+youy+'" r="9" fill="#06b6d4" opacity="0.25"/><circle cx="'+you+'" cy="'+youy+'" r="6" fill="#06b6d4" class="you-dot"/><text x="'+(you+12)+'" y="'+(youy-10)+'" fill="#06b6d4" font-size="9" font-family="monospace" font-weight="bold">You</text>';
+  var lines='';
+  stations.forEach(function(st){
+    lines+='<line x1="'+you+'" y1="'+youy+'" x2="'+st.lng+'" y2="'+st.lat+'" stroke="#06b6d4" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.1"/>';
+  });
+  var markers='';
+  stations.forEach(function(st,i){
+    var col=st.status==='offline'?'#475569':st.color;
+    markers+='<g id="marker-'+st.id+'" style="cursor:pointer" onclick="showPopup('+i+')">';
+    markers+='<circle cx="'+st.lng+'" cy="'+st.lat+'" r="18" fill="'+col+'" opacity="0.15"/>';
+    markers+='<circle cx="'+st.lng+'" cy="'+st.lat+'" r="11" fill="'+col+'" opacity="0.9"/>';
+    markers+='<text x="'+st.lng+'" y="'+(st.lat+4)+'" text-anchor="middle" fill="#fff" font-size="9" font-weight="bold">'+st.slots+'</text>';
+    markers+='</g>';
+  });
+  svg.innerHTML=defs+bg+roads+labels+lines+markers+youDot;
+}
+
+function initStationList(){
+  var list=document.getElementById('station-list');
+  list.innerHTML='';
+  stations.forEach(function(st,i){
+    var tagCls=st.status==='available'?'tag-green':st.status==='limited'?'tag-amber':st.status==='offline'?'tag-blue':'tag-red';
+    var tagTxt=st.status==='available'?'Available':st.status==='limited'?'Limited':st.status==='offline'?'Offline':'Full';
+    var html='<div class="station-card" id="sc-'+st.id+'" onclick="clickSidebarStation('+i+')">';
+    html+='<div class="sc-head"><div class="sc-name">'+st.name+'</div></div>';
+    html+='<div class="sc-addr">'+st.addr+'</div>';
+    html+='<div class="sc-row"><span class="sc-tag '+tagCls+'">'+tagTxt+'</span><span class="sc-tag tag-blue">'+st.type.split('·')[0].trim()+'</span></div>';
+    html+='<div class="sc-footer"><span class="sc-slots">'+st.slots+'/'+st.total+' slots</span><span class="sc-price">'+st.price+'</span><button class="sc-btn" onclick="event.stopPropagation();showPopup('+i+')">View</button></div>';
+    html+='</div>';
+    list.innerHTML+=html;
+  });
+}
+
+function clickSidebarStation(i){
+  document.querySelectorAll('.station-card').forEach(function(c){c.classList.remove('sel')});
+  document.getElementById('sc-'+stations[i].id).classList.add('sel');
+  showPopup(i);
+}
+
+function showPopup(i){
+  var st=stations[i];currentStation=st;
+  document.getElementById('pp-name').textContent=st.name;
+  document.getElementById('pp-addr').textContent=st.addr;
+  document.getElementById('pp-slots').textContent=st.slots+'/'+st.total;
+  document.getElementById('pp-type').textContent=st.type;
+  document.getElementById('pp-price').textContent=st.price;
+  document.getElementById('pp-wait').textContent=st.wait;
+  document.getElementById('pp-rating').textContent=st.rating;
+  var popup=document.getElementById('map-popup');
+  popup.classList.add('show');
+  var x=Math.min(st.lng+22,270);
+  var y=Math.max(st.lat-70,10);
+  popup.style.left=x+'px';popup.style.top=y+'px';
+}
+
+function closePopup(){document.getElementById('map-popup').classList.remove('show');}
+
+function openMapsFromPopup(){
+  if(!currentStation)return;
+  var lat=currentStation.gpsLat,lng=currentStation.gpsLng;
+  window.open('https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng+'&travelmode=driving','_blank');
+}
+
+function openMapsFromBooking(){
+  if(!currentStation)return;
+  var lat=currentStation.gpsLat,lng=currentStation.gpsLng;
+  window.open('https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng+'&travelmode=driving','_blank');
+}
+
+// ============ BOOKING ============
+function openBooking(){
+  if(!currentStation)return;
+  document.getElementById('bk-station-title').textContent=currentStation.name;
+  document.getElementById('bk-station-addr').textContent=currentStation.addr;
+  var rate=parseInt(currentStation.price.replace(/[^0-9]/g,''));
+  document.getElementById('bk-rate').textContent='₹'+rate+'/kWh';
+  document.getElementById('bk-units').textContent='22 kWh (est.)';
+  document.getElementById('bk-total').textContent='₹'+(rate*22+15);
+  selChargerType=null;selTimeSlot=null;
+  document.querySelectorAll('.charger-opt').forEach(function(c){c.classList.remove('sel')});
+  document.getElementById('confirm-btn').disabled=true;
+  switchTab('booking',document.getElementById('tab-btn-booking'));
+  closePopup();
+  initDateNav();
+}
+
+function selCharger(el,type,kw,category){
+  document.querySelectorAll('.charger-opt').forEach(function(c){c.classList.remove('sel')});
+  el.classList.add('sel');
+  selChargerType=type;
+  var units=type==='CCS2'?35:type==='Type2'?22:28;
+  var rate=currentStation?parseInt(currentStation.price.replace(/[^0-9]/g,'')):12;
+  document.getElementById('bk-units').textContent=units+' kWh (est.)';
+  document.getElementById('bk-total').textContent='₹'+(rate*units+15);
+  checkConfirm();
+}
+
+// DATE NAV - Fixed with proper date selection
+var selectedDateIndex=0;
+function initDateNav(){
+  var nav=document.getElementById('date-nav');
+  nav.innerHTML='';
+  var today=new Date();
+  selectedDateIndex=0;
+  for(var d=0;d<3;d++){
+    var date=new Date(today);
+    date.setDate(today.getDate()+d);
+    var label=d===0?'Today':d===1?'Tomorrow':date.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+    var btn=document.createElement('button');
+    btn.className='date-btn'+(d===0?' active-date':'');
+    btn.textContent=label;
+    btn.setAttribute('data-idx',d);
+    (function(idx,dateObj){
+      btn.onclick=function(){
+        document.querySelectorAll('.date-btn').forEach(function(b){b.classList.remove('active-date')});
+        btn.classList.add('active-date');
+        selectedDateIndex=idx;
+        selDate=dateObj;
+        selTimeSlot=null;
+        buildTimeSlots(dateObj,idx);
+        checkConfirm();
+      };
+    })(d,date);
+    nav.appendChild(btn);
+  }
+  selDate=today;
+  buildTimeSlots(today,0);
+}
+
+// FIXED TIME SLOTS - proper individual click handlers, no stuck selection
+function buildTimeSlots(dateObj,dateIdx){
+  var grid=document.getElementById('time-grid');
+  grid.innerHTML='';
+  var now=new Date();
+  var isToday=(dateIdx===0);
+  // Busy slots vary by date index to look realistic
+  var busySets=[[9,12,15,17],[8,11,14,19],[10,13,16]];
+  var busy=busySets[dateIdx%3];
+
+  for(var h=6;h<=22;h++){
+    var ampm=h>=12?'PM':'AM';
+    var h12=h>12?h-12:(h===0?12:h);
+    var label=h12+':00 '+ampm;
+    var isPast=isToday&&h<=now.getHours();
+    var isBusy=busy.indexOf(h)>=0;
+
+    var div=document.createElement('div');
+    if(isPast){
+      div.className='time-slot busy';
+      div.textContent=label+' ✕';
+    } else if(isBusy){
+      div.className='time-slot busy';
+      div.textContent=label+' ✗';
+    } else {
+      div.className='time-slot avail';
+      div.textContent=label;
+      // Each slot gets its own unique click handler via closure
+      (function(slotLabel,slotEl){
+        slotEl.addEventListener('click',function(){
+          document.querySelectorAll('.time-slot.avail').forEach(function(c){c.classList.remove('sel')});
+          slotEl.classList.add('sel');
+          selTimeSlot=slotLabel;
+          checkConfirm();
+        });
+      })(label,div);
+    }
+    grid.appendChild(div);
+  }
+}
+
+function checkConfirm(){
+  document.getElementById('confirm-btn').disabled=!(selChargerType&&selTimeSlot);
+}
+
+function confirmBooking(){
+  bookingCount++;
+  var ref='CE-2026-'+String(bookingCount).padStart(5,'0');
+  document.getElementById('conf-ref').textContent=ref;
+  document.getElementById('cd-station').textContent=currentStation?currentStation.name:'–';
+  var dateLabel=selDate?selDate.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+  document.getElementById('cd-date').textContent=dateLabel;
+  document.getElementById('cd-time').textContent=selTimeSlot||'–';
+  document.getElementById('cd-charger').textContent=selChargerType||'–';
+  document.getElementById('cd-cost').textContent=document.getElementById('bk-total').textContent;
+  document.getElementById('ds-bookings').textContent=bookingCount;
+  drawQR(ref);
+  switchTab('confirm',null);
+}
+
+function drawQR(text){
+  var c=document.getElementById('qr-canvas');
+  var ctx=c.getContext('2d');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,112,112);
+  ctx.fillStyle='#000';
+  var size=8,seed=0;
+  for(var i=0;i<text.length;i++)seed+=text.charCodeAt(i);
+  for(var r=0;r<14;r++){
+    for(var col=0;col<14;col++){
+      var val=(seed*(r*17+col*31+7))%100;
+      if(val<55||(r<3&&col<3)||(r<3&&col>10)||(r>10&&col<3)){
+        ctx.fillRect(4+col*size,4+r*size,size-1,size-1);
+      }
+    }
+  }
+}
+
+// ============ DASHBOARD ============
+function initDashboard(){
+  var bars=document.getElementById('dash-bars');
+  var labels=document.getElementById('dash-bar-labels');
+  var max=Math.max.apply(null,weeklyData);
+  bars.innerHTML='';labels.innerHTML='';
+  weeklyData.forEach(function(v,i){
+    var pct=Math.round((v/max)*100);
+    bars.innerHTML+='<div class="bar" style="height:'+pct+'%;flex:1"><span class="bar-val">'+v+'</span><span class="bar-label">'+weekDays[i]+'</span></div>';
+  });
+  var list=document.getElementById('bk-history-list');
+  list.innerHTML='';
+  bookingHistory.forEach(function(b){
+    var ico=b.status==='completed'?'⚡':'❌';
+    var col=b.status==='completed'?'var(--green2)':'var(--red)';
+    var html='<div class="bkh-item">';
+    html+='<div class="bkh-icon" style="background:rgba(0,0,0,.2)">'+ico+'</div>';
+    html+='<div class="bkh-info"><div class="bkh-name">'+b.station+'</div><div class="bkh-meta">'+b.date+' · '+b.time+' · '+b.charger+'</div></div>';
+    html+='<div class="bkh-right"><div class="bkh-cost">'+b.cost+'</div><div class="bkh-status" style="color:'+col+'">'+b.status+'</div></div>';
+    html+='</div>';
+    list.innerHTML+=html;
+  });
+}
+
+// ============ ADMIN ============
+function initAdmin(){
+  renderStationTable();
+  drawRevBars();
+  document.getElementById('adm-stations').textContent=stations.length;
+}
+
+function renderStationTable(){
+  var tbl=document.getElementById('station-tbl');
+  tbl.innerHTML='';
+  stations.forEach(function(st){
+    var dot=st.status==='available'?'#22C55E':st.status==='limited'?'#F59E0B':st.status==='offline'?'#475569':'#EF4444';
+    var html='<div class="tbl-row">';
+    html+='<div><div class="tbl-name">'+st.name+'</div><div style="font-size:10px;color:var(--muted)">'+st.addr+'</div></div>';
+    html+='<div style="font-family:\'DM Mono\',monospace">'+st.slots+'/'+st.total+'</div>';
+    html+='<div class="tbl-status"><div class="status-dot" style="background:'+dot+'"></div>'+st.status+'</div>';
+    html+='<div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">'+st.util+'%</div><div class="util-bar-wrap"><div class="util-bar" style="width:'+st.util+'%"></div></div></div>';
+    html+='<div class="tbl-actions">';
+    html+='<button class="tbl-btn edit" onclick="editStation('+st.id+')">Edit</button>';
+    html+='<button class="tbl-btn del" onclick="deleteStation('+st.id+')">Delete</button>';
+    html+='</div></div>';
+    tbl.innerHTML+=html;
+  });
+}
+
+function editStation(id){
+  var st=stations.find(function(s){return s.id===id});
+  if(!st)return;
+  editingStationId=id;
+  document.getElementById('modal-title').textContent='Edit Station';
+  document.getElementById('new-name').value=st.name;
+  document.getElementById('new-area').value=st.addr;
+  document.getElementById('new-slots').value=st.total;
+  document.getElementById('new-rate').value=parseInt(st.price.replace(/[^0-9]/g,''));
+  document.getElementById('new-lat').value=st.gpsLat||'';
+  document.getElementById('new-lng').value=st.gpsLng||'';
+  document.getElementById('new-types').value=st.type.replace('Fast DC · ','').replace('AC · ','').replace(' + ',', ');
+  document.getElementById('new-status').value=st.status;
+  document.getElementById('edit-station-id').value=id;
+  document.getElementById('add-modal').classList.add('show');
+}
+
+function deleteStation(id){
+  if(!confirm('Are you sure you want to remove this station?'))return;
+  stations=stations.filter(function(s){return s.id!==id});
+  document.getElementById('adm-stations').textContent=stations.length;
+  renderStationTable();
+  initStationList();
+  initMap();
+  populateStationSelects();
+  showToast('Station removed');
+}
+
+function showAddModal(){
+  editingStationId=null;
+  document.getElementById('modal-title').textContent='Add New Station';
+  document.getElementById('edit-station-id').value='';
+  ['new-name','new-area','new-lat','new-lng','new-types'].forEach(function(id){document.getElementById(id).value=''});
+  document.getElementById('new-slots').value='';
+  document.getElementById('new-rate').value='';
+  document.getElementById('new-status').value='available';
+  document.getElementById('add-modal').classList.add('show');
+}
+
+function closeAddModal(){document.getElementById('add-modal').classList.remove('show');}
+
+function saveStation(){
+  var name=document.getElementById('new-name').value.trim();
+  var area=document.getElementById('new-area').value.trim();
+  var totalSlots=parseInt(document.getElementById('new-slots').value)||6;
+  var rate=parseInt(document.getElementById('new-rate').value)||12;
+  var types=document.getElementById('new-types').value.trim()||'CCS2';
+  var gpsLat=parseFloat(document.getElementById('new-lat').value)||23.2599;
+  var gpsLng=parseFloat(document.getElementById('new-lng').value)||77.4126;
+  var status=document.getElementById('new-status').value;
+  if(!name||!area){showToast('Please fill station name and area','error');return;}
+
+  var editId=document.getElementById('edit-station-id').value;
+  if(editId){
+    // Editing existing
+    var idx=stations.findIndex(function(s){return s.id==editId});
+    if(idx>-1){
+      var old=stations[idx];
+      stations[idx]=Object.assign({},old,{
+        name:name,addr:area,total:totalSlots,
+        price:'₹'+rate+'/kWh',type:'Fast DC · '+types.split(',')[0].trim(),
+        gpsLat:gpsLat,gpsLng:gpsLng,status:status,
+        color:status==='available'?'#22C55E':status==='limited'?'#F59E0B':status==='offline'?'#475569':'#EF4444',
+        slots:Math.min(old.slots,totalSlots)
+      });
+      showToast('Station updated!');
+    }
+  } else {
+    // Adding new
+    var svgPos={lat:100+Math.random()*300,lng:50+Math.random()*400};
+    var newSt={
+      id:Date.now(),name:name,addr:area,
+      lat:svgPos.lat,lng:svgPos.lng,
+      gpsLat:gpsLat,gpsLng:gpsLng,
+      slots:Math.floor(totalSlots*0.6),total:totalSlots,
+      type:'Fast DC · '+types.split(',')[0].trim(),
+      price:'₹'+rate+'/kWh',wait:'~5 min',rating:'New ★',
+      color:'#22C55E',status:status,util:0
+    };
+    stations.push(newSt);
+    showToast('Station added!');
+  }
+  document.getElementById('adm-stations').textContent=stations.length;
+  closeAddModal();
+  renderStationTable();
+  initStationList();
+  initMap();
+  populateStationSelects();
+}
+
+function drawRevBars(){
+  var data=revPeriod==='week'?revWeek:revMonth;
+  var labels=revPeriod==='week'?revWeekLabels:revMonthLabels;
+  var bars=document.getElementById('rev-bars');
+  var lblDiv=document.getElementById('rev-bar-labels');
+  var max=Math.max.apply(null,data);
+  bars.innerHTML='';lblDiv.innerHTML='';
+  data.forEach(function(v,i){
+    var pct=Math.round((v/max)*90);
+    bars.innerHTML+='<div class="rb" style="height:'+pct+'%;flex:1"><span class="rb-val">'+Math.round(v/1000)+'k</span><span class="rb-label">'+labels[i]+'</span></div>';
+  });
+}
+
+function toggleRevPeriod(btn,period){
+  revPeriod=period;
+  document.querySelectorAll('.rct-btn').forEach(function(b){b.classList.remove('on')});
+  btn.classList.add('on');drawRevBars();
+}
+
+// ============ FEEDBACK & COMPLAINTS ============
+function switchFbTab(name,btn){
+  document.querySelectorAll('.fb-tab').forEach(function(b){b.classList.remove('active')});
+  document.querySelectorAll('.fb-section').forEach(function(s){s.classList.remove('active')});
+  btn.classList.add('active');
+  document.getElementById('fbs-'+name).classList.add('active');
+}
+
+function setStar(n){
+  starRating=n;
+  document.querySelectorAll('.star').forEach(function(s,i){
+    s.classList.toggle('active',i<n);
+  });
+}
+
+function setPriority(el,p){
+  complaintPriority=p;
+  document.querySelectorAll('.priority-chip').forEach(function(c){c.classList.remove('active-p')});
+  el.classList.add('active-p');
+}
+
+function populateStationSelects(){
+  ['fb-station','cmp-station'].forEach(function(sid){
+    var sel=document.getElementById(sid);
+    if(!sel)return;
+    var firstOpt=sel.options[0];
+    sel.innerHTML='';
+    sel.appendChild(firstOpt);
+    stations.forEach(function(st){
+      var opt=document.createElement('option');
+      opt.value=st.name;opt.textContent=st.name;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function buildEmailBody(subject,lines){
+  return lines.join('\n');
+}
+
+function submitFeedback(){
+  var msg=document.getElementById('fb-message').value.trim();
+  var station=document.getElementById('fb-station').value;
+  var email=document.getElementById('fb-email').value.trim();
+  if(!msg){showToast('Please write your feedback','error');return;}
+  if(starRating===0){showToast('Please rate your experience','error');return;}
+
+  var stars='★'.repeat(starRating)+'☆'.repeat(5-starRating);
+  var body='ChargEase Feedback\n\nRating: '+stars+' ('+starRating+'/5)\nStation: '+(station||'General')+'\nUser Email: '+(email||'Not provided')+'\n\nFeedback:\n'+msg;
+  var mailto='mailto:ramukaka05909@gmail.com?subject='+encodeURIComponent('[ChargEase Feedback] '+stars)+
+    '&body='+encodeURIComponent(body);
+  window.open(mailto,'_blank');
+
+  document.getElementById('fb-message').value='';
+  document.getElementById('fb-email').value='';
+  document.getElementById('fb-station').value='';
+  setStar(0);
+  showToast('Feedback sent! Thank you 🙏');
+}
+
+function submitComplaint(){
+  var msg=document.getElementById('cmp-message').value.trim();
+  var station=document.getElementById('cmp-station').value;
+  var type=document.getElementById('cmp-type').value;
+  var email=document.getElementById('cmp-email').value.trim();
+  if(!msg){showToast('Please describe the issue','error');return;}
+  if(!type){showToast('Please select an issue type','error');return;}
+
+  var priority=complaintPriority||'not specified';
+  var body='ChargEase Complaint\n\nStation: '+(station||'Not specified')+
+    '\nIssue Type: '+type+'\nPriority: '+priority.toUpperCase()+
+    '\nContact Email: '+(email||'Not provided')+'\n\nDescription:\n'+msg+
+    '\n\n---\nSubmitted via ChargEase App';
+  var mailto='mailto:ramukaka05909@gmail.com?subject='+encodeURIComponent('[ChargEase COMPLAINT]['+priority.toUpperCase()+'] '+type)+
+    '&body='+encodeURIComponent(body);
+  window.open(mailto,'_blank');
+
+  document.getElementById('cmp-message').value='';
+  document.getElementById('cmp-email').value='';
+  document.getElementById('cmp-station').value='';
+  document.getElementById('cmp-type').value='';
+  complaintPriority='';
+  document.querySelectorAll('.priority-chip').forEach(function(c){c.classList.remove('active-p')});
+  showToast('Complaint submitted! We\'ll respond within 24h 🚨');
+}
+
+// ============ REAL-TIME SIMULATION ============
+function startSlotRefresh(){
+  slotInterval=setInterval(function(){
+    stations.forEach(function(st){
+      if(st.status==='offline')return;
+      if(Math.random()<0.3){
+        var delta=Math.random()<0.5?1:-1;
+        st.slots=Math.max(0,Math.min(st.total,st.slots+delta));
+        st.status=st.slots===0?'full':st.slots/st.total<0.4?'limited':'available';
+        st.color=st.slots===0?'#EF4444':st.slots/st.total<0.4?'#F59E0B':'#22C55E';
+        st.wait=st.slots===0?'Full':st.slots<2?'~30 min':st.slots<4?'~15 min':'~5 min';
+        st.util=Math.round((1-(st.slots/st.total))*100);
+      }
+    });
+    initStationList();initMap();
+  },7000);
+}
+
+function startGPSUpdate(){
+  var lat=23.2599,lng=77.4126;
+  gpsInterval=setInterval(function(){
+    lat+=((Math.random()-.5)*0.0003);
+    lng+=((Math.random()-.5)*0.0003);
+    document.getElementById('gps-coord').textContent=lat.toFixed(4)+'° N, '+lng.toFixed(4)+'° E';
+  },800);
+}
+
+function recenter(){
+  var svg=document.getElementById('map-svg');
+  svg.style.transition='transform .3s';svg.style.transform='scale(1.03)';
+  setTimeout(function(){svg.style.transform='scale(1)'},300);
+}
+
+function toggleFilter(el){el.classList.toggle('on');}
+
+// ============ TOAST ============
+function showToast(msg,type){
+  var t=document.getElementById('toast');
+  t.textContent=(type==='error'?'⚠ ':'')+msg;
+  t.style.borderColor=type==='error'?'var(--red)':'var(--green2)';
+  t.style.color=type==='error'?'var(--red)':'var(--green2)';
+  t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show')},3000);
+}
+
+// ============ SEARCH ============
+document.getElementById('map-search').addEventListener('input',function(){
+  var q=this.value.toLowerCase();
+  document.querySelectorAll('.station-card').forEach(function(card){
+    var name=card.querySelector('.sc-name').textContent.toLowerCase();
+    var addr=card.querySelector('.sc-addr').textContent.toLowerCase();
+    card.style.display=(name.includes(q)||addr.includes(q)||q==='')?'':'none';
+  });
+});
+
+// ============ INIT ============
+drawRevBars();
+</script>
+</body>
+</html>
