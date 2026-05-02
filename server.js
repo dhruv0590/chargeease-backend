@@ -1,5 +1,5 @@
-// ChargEase Backend v2.0 — server.js
-// PostGIS + Redis Cache + Socket.IO
+// ChargEase Backend v3.0 — server.js
+// PostGIS + Redis Cache + Socket.IO + Phone/Email Login
 // npm install express pg cors bcryptjs jsonwebtoken socket.io dotenv ioredis
 
 require('dotenv').config();
@@ -24,7 +24,7 @@ app.use(express.json());
 const PORT       = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'chargeease-secret';
 
-// ─── PostgreSQL (PostGIS enabled) ────────────────────────────────────────────
+// ─── PostgreSQL ───────────────────────────────────────────────────────────────
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -44,27 +44,17 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
 });
 
 redis.on('connect', () => console.log('✅ Redis connected'));
-redis.on('error',   (e) => console.warn('⚠️ Redis error (using DB fallback):', e.message));
+redis.on('error',   (e) => console.warn('⚠️  Redis unavailable (DB fallback):', e.message));
 
-// Cache helper functions
 async function cacheGet(key) {
-  try {
-    const val = await redis.get(key);
-    return val ? JSON.parse(val) : null;
-  } catch { return null; }
+  try { const v = await redis.get(key); return v ? JSON.parse(v) : null; }
+  catch { return null; }
 }
-
-async function cacheSet(key, data, ttlSeconds = 30) {
-  try {
-    await redis.setex(key, ttlSeconds, JSON.stringify(data));
-  } catch { /* silently skip if Redis down */ }
+async function cacheSet(key, data, ttl = 30) {
+  try { await redis.setex(key, ttl, JSON.stringify(data)); } catch {}
 }
-
 async function cacheDel(pattern) {
-  try {
-    const keys = await redis.keys(pattern);
-    if (keys.length) await redis.del(...keys);
-  } catch { }
+  try { const keys = await redis.keys(pattern); if (keys.length) await redis.del(...keys); } catch {}
 }
 
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
@@ -72,21 +62,19 @@ async function cacheDel(pattern) {
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token provided' });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    res.status(401).json({ error: 'Invalid or expired token' });
-  }
+  try { req.user = jwt.verify(token, JWT_SECRET); next(); }
+  catch { res.status(401).json({ error: 'Invalid or expired token' }); }
 }
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 
 app.get('/', (req, res) => res.json({
   status: 'ChargEase API running',
-  version: '2.0',
-  features: ['PostGIS', 'Redis Cache', 'Socket.IO']
+  version: '3.0',
+  features: ['PostGIS', 'Redis Cache', 'Socket.IO', 'Phone+Email Login']
 }));
+
+app.get('/health', (req, res) => res.json({ status: 'ok', version: '3.0' }));
 
 // ════════════════════════════════════════════════════════════════════════════
 // AUTH ROUTES
@@ -96,41 +84,93 @@ app.get('/', (req, res) => res.json({
 app.post('/api/auth/register', async (req, res) => {
   const { name, email, phone, password, role, vehicle_type } = req.body;
   if (!name || !email || !password)
-    return res.status(400).json({ error: 'Name, email and password required' });
+    return res.status(400).json({ error: 'Name, email aur password required hai' });
   try {
-    const exists = await pool.query('SELECT id FROM users WHERE email=$1', [email]);
-    if (exists.rows.length) return res.status(409).json({ error: 'Email already registered' });
+    // Check duplicate email
+    const exists = await pool.query('SELECT id FROM users WHERE email=$1', [email.toLowerCase().trim()]);
+    if (exists.rows.length)
+      return res.status(409).json({ error: 'Yeh email already registered hai' });
+
+    // Check duplicate phone if provided
+    if (phone) {
+      const phoneExists = await pool.query('SELECT id FROM users WHERE phone=$1', [phone.trim()]);
+      if (phoneExists.rows.length)
+        return res.status(409).json({ error: 'Yeh phone number already registered hai' });
+    }
+
     const hash   = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO users (name,email,phone,password_hash,role,vehicle_type)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id,name,email,role`,
-      [name, email, phone||null, hash, role||'ev_owner', vehicle_type||null]
+      `INSERT INTO users (name, email, phone, password_hash, role, vehicle_type)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, email, phone, role, vehicle_type`,
+      [name.trim(), email.toLowerCase().trim(), phone||null, hash, role||'ev_owner', vehicle_type||null]
     );
     const user  = result.rows[0];
-    const token = jwt.sign({ id:user.id, email:user.email, role:user.role }, JWT_SECRET, { expiresIn:'7d' });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ token, user });
-  } catch(err) { res.status(500).json({ error: 'Registration failed' }); }
+  } catch(err) {
+    console.error('Register error:', err.message);
+    res.status(500).json({ error: 'Registration failed' });
+  }
 });
 
 // POST /api/auth/login
+// ✅ Email YA phone number dono se login hoga
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const { email, phone, password } = req.body;
+
+  if ((!email && !phone) || !password)
+    return res.status(400).json({ error: 'Email/phone aur password required hai' });
+
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
-    const user   = result.rows[0];
+    let result;
+    if (email) {
+      // Login with email
+      result = await pool.query(
+        'SELECT * FROM users WHERE email = $1',
+        [email.toLowerCase().trim()]
+      );
+    } else {
+      // Login with phone number
+      result = await pool.query(
+        'SELECT * FROM users WHERE phone = $1',
+        [phone.trim()]
+      );
+    }
+
+    const user = result.rows[0];
+
     if (!user || !(await bcrypt.compare(password, user.password_hash)))
-      return res.status(401).json({ error: 'Invalid email or password' });
-    const token = jwt.sign({ id:user.id, email:user.email, role:user.role }, JWT_SECRET, { expiresIn:'7d' });
-    res.json({ token, user: { id:user.id, name:user.name, email:user.email, role:user.role } });
-  } catch(err) { res.status(500).json({ error: 'Login failed' }); }
+      return res.status(401).json({ error: 'Email/phone ya password galat hai' });
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id:           user.id,
+        name:         user.name,
+        email:        user.email,
+        phone:        user.phone,
+        role:         user.role,
+        vehicle_type: user.vehicle_type
+      }
+    });
+  } catch(err) {
+    console.error('Login error:', err.message);
+    res.status(500).json({ error: 'Login failed' });
+  }
 });
 
 // GET /api/auth/me
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id,name,email,phone,role,vehicle_type,created_at FROM users WHERE id=$1',
+      'SELECT id, name, email, phone, role, vehicle_type, created_at FROM users WHERE id=$1',
       [req.user.id]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
@@ -142,57 +182,45 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 // STATIONS ROUTES (PostGIS + Redis Cache)
 // ════════════════════════════════════════════════════════════════════════════
 
-// GET /api/stations — list all (cached 30s)
+// GET /api/stations
 // GET /api/stations?search=mp&status=available&charger_type=CCS
-// GET /api/stations?lat=23.23&lng=77.43&radius=5000 ← PostGIS nearest!
+// GET /api/stations?lat=23.23&lng=77.43&radius=5000  ← PostGIS nearest
 app.get('/api/stations', async (req, res) => {
   const { search, status, charger_type, lat, lng, radius } = req.query;
-
-  // Build cache key from query params
   const cacheKey = `stations:${search||''}:${status||''}:${charger_type||''}:${lat||''}:${lng||''}:${radius||''}`;
 
-  // Try Redis cache first
   const cached = await cacheGet(cacheKey);
-  if (cached) {
-    res.setHeader('X-Cache', 'HIT');
-    return res.json(cached);
-  }
+  if (cached) { res.setHeader('X-Cache','HIT'); return res.json(cached); }
 
   try {
     let query, params = [];
 
     if (lat && lng) {
-      // ★ PostGIS Query — nearest stations by GPS distance
-      const radiusM = parseFloat(radius) || 10000; // default 10km
+      const radiusM = parseFloat(radius) || 10000;
       query = `
         SELECT *,
           ROUND(ST_Distance(
             location::geography,
-            ST_MakePoint($1, $2)::geography
+            ST_MakePoint($1,$2)::geography
           )) AS distance_meters,
           ROUND((available_slots::numeric / NULLIF(total_slots,0)) * 100) AS availability_pct
         FROM stations
-        WHERE ST_DWithin(
-          location::geography,
-          ST_MakePoint($1, $2)::geography,
-          $3
-        )
-        ${status ? 'AND status = $4' : ''}
-        ${charger_type ? `AND charger_types ILIKE $${status ? 5 : 4}` : ''}
+        WHERE ST_DWithin(location::geography, ST_MakePoint($1,$2)::geography, $3)
+        ${status ? 'AND status=$4' : ''}
+        ${charger_type ? `AND charger_types ILIKE $${status?5:4}` : ''}
         ORDER BY distance_meters ASC
       `;
       params = [parseFloat(lng), parseFloat(lat), radiusM];
-      if (status) params.push(status);
+      if (status)       params.push(status);
       if (charger_type) params.push(`%${charger_type}%`);
     } else {
-      // Normal query with optional filters
       query = `
         SELECT *,
           ROUND((available_slots::numeric / NULLIF(total_slots,0)) * 100) AS availability_pct
         FROM stations WHERE 1=1
-        ${search ? `AND (name ILIKE $${params.length+1} OR address ILIKE $${params.length+1})` : ''}
-        ${status ? `AND status = $${params.length + (search?2:1)}` : ''}
-        ${charger_type ? `AND charger_types ILIKE $${params.length + (search?1:0) + (status?1:0) + 1}` : ''}
+        ${search       ? `AND (name ILIKE $${params.length+1} OR address ILIKE $${params.length+1})` : ''}
+        ${status       ? `AND status=$${params.length+(search?2:1)}` : ''}
+        ${charger_type ? `AND charger_types ILIKE $${params.length+(search?1:0)+(status?1:0)+1}` : ''}
         ORDER BY name ASC
       `;
       if (search)       params.push(`%${search}%`);
@@ -201,19 +229,16 @@ app.get('/api/stations', async (req, res) => {
     }
 
     const result = await pool.query(query, params);
-
-    // Cache result for 30 seconds
     await cacheSet(cacheKey, result.rows, 30);
-
-    res.setHeader('X-Cache', 'MISS');
+    res.setHeader('X-Cache','MISS');
     res.json(result.rows);
   } catch(err) {
-    console.error(err);
+    console.error('Stations error:', err.message);
     res.status(500).json({ error: 'Failed to fetch stations' });
   }
 });
 
-// GET /api/stations/nearest?lat=23.23&lng=77.43 — top 3 nearest (PostGIS)
+// GET /api/stations/nearest?lat=23.23&lng=77.43
 app.get('/api/stations/nearest', async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
@@ -225,20 +250,16 @@ app.get('/api/stations/nearest', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT *,
-        ROUND(ST_Distance(
-          location::geography,
-          ST_MakePoint($1,$2)::geography
-        )) AS distance_meters
+        ROUND(ST_Distance(location::geography, ST_MakePoint($1,$2)::geography)) AS distance_meters
       FROM stations
       WHERE status != 'offline'
       ORDER BY location <-> ST_MakePoint($1,$2)::geography
       LIMIT 3
     `, [parseFloat(lng), parseFloat(lat)]);
-
-    await cacheSet(cacheKey, result.rows, 15); // 15 sec cache for nearest
+    await cacheSet(cacheKey, result.rows, 15);
     res.json(result.rows);
   } catch(err) {
-    console.error(err);
+    console.error('Nearest error:', err.message);
     res.status(500).json({ error: 'Failed to find nearest stations' });
   }
 });
@@ -248,7 +269,6 @@ app.get('/api/stations/:id', async (req, res) => {
   const cacheKey = `station:${req.params.id}`;
   const cached   = await cacheGet(cacheKey);
   if (cached) return res.json(cached);
-
   try {
     const result = await pool.query('SELECT * FROM stations WHERE id=$1', [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Station not found' });
@@ -257,7 +277,7 @@ app.get('/api/stations/:id', async (req, res) => {
   } catch { res.status(500).json({ error: 'Failed to fetch station' }); }
 });
 
-// POST /api/stations — add station (admin only)
+// POST /api/stations (admin only)
 app.post('/api/stations', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admins only' });
   const { name, address, latitude, longitude, total_slots, price_per_kwh, charger_types } = req.body;
@@ -266,44 +286,39 @@ app.post('/api/stations', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO stations (name,address,latitude,longitude,total_slots,available_slots,price_per_kwh,charger_types,location)
-       VALUES ($1,$2,$3,$4,$5,$5,$6,$7, ST_SetSRID(ST_MakePoint($8,$9),4326)) RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$5,$6,$7,ST_SetSRID(ST_MakePoint($8,$9),4326)) RETURNING *`,
       [name, address, latitude, longitude, total_slots, price_per_kwh||8.00, charger_types||'Type 2', longitude, latitude]
     );
-    const station = result.rows[0];
-    await cacheDel('stations:*');       // Invalidate all station caches
-    io.emit('station_updated', station);
-    res.status(201).json(station);
+    await cacheDel('stations:*');
+    io.emit('station_updated', result.rows[0]);
+    res.status(201).json(result.rows[0]);
   } catch(err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to create station' });
   }
 });
 
-// PATCH /api/stations/:id/slots — update slots + invalidate cache
+// PATCH /api/stations/:id/slots
 app.patch('/api/stations/:id/slots', authMiddleware, async (req, res) => {
   const { available_slots } = req.body;
   if (available_slots === undefined) return res.status(400).json({ error: 'available_slots required' });
   try {
     const result = await pool.query(
       `UPDATE stations SET
-         available_slots = $1,
-         status = CASE WHEN $1=0 THEN 'full'
-                       WHEN $1::float/total_slots < 0.4 THEN 'limited'
-                       ELSE 'available' END,
-         updated_at = NOW()
+         available_slots=$1,
+         status=CASE WHEN $1=0 THEN 'full'
+                     WHEN $1::float/total_slots<0.4 THEN 'limited'
+                     ELSE 'available' END,
+         updated_at=NOW()
        WHERE id=$2 RETURNING *`,
       [available_slots, req.params.id]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Station not found' });
-    const station = result.rows[0];
-
-    // Invalidate Redis cache for this station
     await cacheDel(`station:${req.params.id}`);
     await cacheDel('stations:*');
     await cacheDel('nearest:*');
-
-    io.emit('station_updated', station);
-    res.json(station);
+    io.emit('station_updated', result.rows[0]);
+    res.json(result.rows[0]);
   } catch { res.status(500).json({ error: 'Failed to update slots' }); }
 });
 
@@ -315,7 +330,6 @@ app.get('/api/bookings', authMiddleware, async (req, res) => {
   const cacheKey = `bookings:user:${req.user.id}`;
   const cached   = await cacheGet(cacheKey);
   if (cached) return res.json(cached);
-
   try {
     const result = await pool.query(
       `SELECT b.*, s.name AS station_name, s.address AS station_address
@@ -323,7 +337,7 @@ app.get('/api/bookings', authMiddleware, async (req, res) => {
        WHERE b.user_id=$1 ORDER BY b.created_at DESC`,
       [req.user.id]
     );
-    await cacheSet(cacheKey, result.rows, 60); // 1 min cache
+    await cacheSet(cacheKey, result.rows, 60);
     res.json(result.rows);
   } catch { res.status(500).json({ error: 'Failed to fetch bookings' }); }
 });
@@ -349,21 +363,18 @@ app.post('/api/bookings', authMiddleware, async (req, res) => {
        VALUES ($1,$2,$3,$4,'confirmed',$5) RETURNING *`,
       [req.user.id, station_id, start_time, end_time, amount]
     );
-
     await client.query(
       `UPDATE stations SET
-         available_slots = available_slots - 1,
-         status = CASE WHEN available_slots-1=0 THEN 'full'
-                       WHEN (available_slots-1)::float/total_slots < 0.4 THEN 'limited'
-                       ELSE 'available' END,
-         updated_at = NOW()
+         available_slots=available_slots-1,
+         status=CASE WHEN available_slots-1=0 THEN 'full'
+                     WHEN (available_slots-1)::float/total_slots<0.4 THEN 'limited'
+                     ELSE 'available' END,
+         updated_at=NOW()
        WHERE id=$1`,
       [station_id]
     );
-
     await client.query('COMMIT');
 
-    // Invalidate caches
     await cacheDel(`station:${station_id}`);
     await cacheDel('stations:*');
     await cacheDel('nearest:*');
@@ -371,7 +382,6 @@ app.post('/api/bookings', authMiddleware, async (req, res) => {
 
     const updated = await pool.query('SELECT * FROM stations WHERE id=$1', [station_id]);
     io.emit('station_updated', updated.rows[0]);
-
     res.status(201).json({ booking: bookResult.rows[0], amount_paid: amount });
   } catch(err) {
     await client.query('ROLLBACK');
@@ -396,10 +406,10 @@ app.patch('/api/bookings/:id/cancel', authMiddleware, async (req, res) => {
     await client.query("UPDATE bookings SET status='cancelled' WHERE id=$1", [req.params.id]);
     await client.query(
       `UPDATE stations SET
-         available_slots = available_slots + 1,
-         status = CASE WHEN (available_slots+1)::float/total_slots >= 0.4 THEN 'available'
-                       ELSE 'limited' END,
-         updated_at = NOW()
+         available_slots=available_slots+1,
+         status=CASE WHEN (available_slots+1)::float/total_slots>=0.4 THEN 'available'
+                     ELSE 'limited' END,
+         updated_at=NOW()
        WHERE id=$1`,
       [booking.station_id]
     );
@@ -446,7 +456,7 @@ app.get('/api/feedback', async (req, res) => {
 app.post('/api/feedback', authMiddleware, async (req, res) => {
   const { station_id, rating, message } = req.body;
   if (!rating || rating < 1 || rating > 5)
-    return res.status(400).json({ error: 'Rating must be 1-5' });
+    return res.status(400).json({ error: 'Rating 1-5 ke beech hona chahiye' });
   try {
     const result = await pool.query(
       'INSERT INTO feedback (user_id,station_id,rating,message) VALUES ($1,$2,$3,$4) RETURNING *',
@@ -460,7 +470,7 @@ app.post('/api/feedback', authMiddleware, async (req, res) => {
 app.post('/api/complaints', authMiddleware, async (req, res) => {
   const { station_id, type, priority, description } = req.body;
   if (!type || !description)
-    return res.status(400).json({ error: 'type and description required' });
+    return res.status(400).json({ error: 'type aur description required hai' });
   try {
     const result = await pool.query(
       'INSERT INTO complaints (user_id,station_id,type,priority,description) VALUES ($1,$2,$3,$4,$5) RETURNING *',
@@ -502,8 +512,6 @@ app.patch('/api/complaints/:id/status', authMiddleware, async (req, res) => {
 
 io.on('connection', (socket) => {
   console.log(`🔌 Client connected: ${socket.id}`);
-
-  // Send initial stations (try Redis first, then DB)
   (async () => {
     let stations = await cacheGet('stations:initial');
     if (!stations) {
@@ -513,44 +521,38 @@ io.on('connection', (socket) => {
     }
     socket.emit('stations_initial', stations);
   })();
-
   socket.on('disconnect', () => console.log(`🔌 Disconnected: ${socket.id}`));
 });
 
-// Simulate real-time slot changes (replace with real IoT data in production)
+// Simulate real-time slot changes (replace with real IoT in production)
 setInterval(async () => {
   try {
-    const stations = (await pool.query("SELECT * FROM stations WHERE status != 'offline'")).rows;
+    const stations = (await pool.query("SELECT * FROM stations WHERE status!='offline'")).rows;
     for (const st of stations) {
       if (Math.random() < 0.3) {
-        const delta    = Math.random() < 0.5 ? 1 : -1;
-        const newSlots = Math.max(0, Math.min(st.total_slots, st.available_slots + delta));
-        const newStatus= newSlots===0?'full':newSlots/st.total_slots<0.4?'limited':'available';
-
+        const delta     = Math.random() < 0.5 ? 1 : -1;
+        const newSlots  = Math.max(0, Math.min(st.total_slots, st.available_slots + delta));
+        const newStatus = newSlots===0?'full':newSlots/st.total_slots<0.4?'limited':'available';
         await pool.query(
-          'UPDATE stations SET available_slots=$1, status=$2, updated_at=NOW() WHERE id=$3',
+          'UPDATE stations SET available_slots=$1,status=$2,updated_at=NOW() WHERE id=$3',
           [newSlots, newStatus, st.id]
         );
-
-        // Invalidate Redis cache on slot change
         await cacheDel(`station:${st.id}`);
         await cacheDel('stations:*');
         await cacheDel('nearest:*');
-
-        const updated = (await pool.query('SELECT * FROM stations WHERE id=$1', [st.id])).rows[0];
+        const updated = (await pool.query('SELECT * FROM stations WHERE id=$1',[st.id])).rows[0];
         io.emit('station_updated', updated);
       }
     }
-  } catch(err) {
-    console.error('Slot simulation error:', err.message);
-  }
+  } catch(err) { console.error('Slot simulation error:', err.message); }
 }, 7000);
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
+// ─── Start ────────────────────────────────────────────────────────────────────
 
 server.listen(PORT, () => {
-  console.log(`🚀 ChargEase API v2.0 running on http://localhost:${PORT}`);
-  console.log(`   ⚡ PostGIS nearest-station queries: enabled`);
-  console.log(`   ⚡ Redis cache: enabled`);
-  console.log(`   ⚡ Socket.IO real-time: enabled`);
+  console.log(`🚀 ChargEase API v3.0 on http://localhost:${PORT}`);
+  console.log(`   ✅ Email + Phone login: enabled`);
+  console.log(`   ✅ PostGIS nearest stations: enabled`);
+  console.log(`   ✅ Redis cache: enabled`);
+  console.log(`   ✅ Socket.IO real-time: enabled`);
 });
