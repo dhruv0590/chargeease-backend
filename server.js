@@ -298,6 +298,23 @@ app.post('/api/stations', authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/stations/:id (admin only)
+app.delete('/api/stations/:id', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admins only' });
+  try {
+    const result = await pool.query('DELETE FROM stations WHERE id=$1 RETURNING id,name', [req.params.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Station not found' });
+    await cacheDel(`station:${req.params.id}`);
+    await cacheDel('stations:*');
+    await cacheDel('nearest:*');
+    io.emit('station_deleted', { id: req.params.id });
+    res.json({ message: 'Station deleted', station: result.rows[0] });
+  } catch(err) {
+    console.error('Delete station error:', err.message);
+    res.status(500).json({ error: 'Failed to delete station' });
+  }
+});
+
 // PATCH /api/stations/:id/slots
 app.patch('/api/stations/:id/slots', authMiddleware, async (req, res) => {
   const { available_slots } = req.body;
