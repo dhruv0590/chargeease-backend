@@ -57,9 +57,26 @@ async function cacheDel(pattern) {
   try { const keys = await redis.keys(pattern); if (keys.length) await redis.del(...keys); } catch {}
 }
 
-// ─── Resend Email Setup ───────────────────────────────────────────────────────
+// ─── Brevo SMTP Email Setup ───────────────────────────────────────────────────
 
-const otpStore = {}; // { email: { otp, expiresAt } }
+const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.BREVO_USER,
+    pass: process.env.BREVO_PASS,
+  },
+});
+
+transporter.verify((err) => {
+  if (err) console.error('❌ Brevo SMTP error:', err.message);
+  else     console.log('✅ Brevo SMTP ready');
+});
+
+const otpStore = {};
 
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -81,26 +98,14 @@ async function sendOTPEmail(email, otp, purpose = 'verification') {
     </div>
   `;
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: 'ChargEase <onboarding@resend.dev>',
-      to: [email],
-      subject,
-      html,
-    }),
+  await transporter.sendMail({
+    from: '"ChargEase" <abhitiwari180745@gmail.com>',
+    to: email,
+    subject,
+    html,
   });
 
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.message || 'Resend API error');
-  }
-
-  console.log('✅ OTP email sent via Resend to:', email);
+  console.log('✅ OTP email sent via Brevo to:', email);
 }
 
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
