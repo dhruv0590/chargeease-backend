@@ -1,6 +1,6 @@
-// ChargEase Backend v3.0 — server.js
-// PostGIS + Redis Cache + Socket.IO + Phone/Email Login
-// npm install express pg cors bcryptjs jsonwebtoken socket.io dotenv ioredis
+// ChargEase Backend v3.1 — server.js
+// PostGIS + Redis Cache + Socket.IO + Phone/Email Login + OTP + Forgot Password
+// npm install express pg cors bcryptjs jsonwebtoken socket.io dotenv ioredis nodemailer
 
 require('dotenv').config();
 const express    = require('express');
@@ -11,6 +11,7 @@ const cors       = require('cors');
 const bcrypt     = require('bcryptjs');
 const jwt        = require('jsonwebtoken');
 const Redis      = require('ioredis');
+const nodemailer = require('nodemailer');
 
 // ─── App Setup ───────────────────────────────────────────────────────────────
 
@@ -57,6 +58,52 @@ async function cacheDel(pattern) {
   try { const keys = await redis.keys(pattern); if (keys.length) await redis.del(...keys); } catch {}
 }
 
+// ─── Nodemailer Setup ─────────────────────────────────────────────────────────
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS,
+  },
+});
+
+transporter.verify((err) => {
+  if (err) console.error('❌ Gmail error:', err.message);
+  else     console.log('✅ Gmail (Nodemailer) ready');
+});
+
+// OTP store in memory (Redis better hoga production mein — abhi simple hai)
+const otpStore = {}; // { email: { otp, expiresAt } }
+
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function sendOTPEmail(email, otp, purpose = 'verification') {
+  const subject = purpose === 'forgot'
+    ? 'ChargEase — Password Reset OTP'
+    : 'ChargEase — Email Verification OTP';
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;border:1px solid #e0e0e0;border-radius:12px;">
+      <h2 style="color:#00C853;">⚡ ChargEase</h2>
+      <p>Tumhara OTP code hai:</p>
+      <div style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#333;text-align:center;padding:16px;background:#f5f5f5;border-radius:8px;">
+        ${otp}
+      </div>
+      <p style="color:#888;font-size:13px;margin-top:16px;">Yeh OTP 10 minutes mein expire ho jayega. Kisi ke saath share mat karo.</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"ChargEase" <${process.env.GMAIL_USER}>`,
+    to: email,
+    subject,
+    html,
+  });
+}
+
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 
 function authMiddleware(req, res, next) {
@@ -70,11 +117,51 @@ function authMiddleware(req, res, next) {
 
 app.get('/', (req, res) => res.json({
   status: 'ChargEase API running',
-  version: '3.0',
-  features: ['PostGIS', 'Redis Cache', 'Socket.IO', 'Phone+Email Login']
+  version: '3.1',
+  features: ['PostGIS', 'Redis Cache', 'Socket.IO', 'Phone+Email Login', 'OTP', 'Forgot Password']
 }));
 
-app.get('/health', (req, res) => res.json({ status: 'ok', version: '3.0' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', version: '3.1' }));
+
+// ════════════════════════════════════════════════════════════════════════════
+// OTP ROUTES
+// ════════════════════════════════════════════════════════════════════════════
+
+// POST /api/auth/send-otp
+// Body: { email }
+app.post('/api/auth/send-otp', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required hai' });
+
+  const otp = generateOTP();
+  otpStore[email.toLowerCase()] = {
+    otp,
+    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+  };
+
+  try {
+    await sendOTPEmail(email.toLowerCase(), otp, 'verification');
+    res.json({ message: 'OTP bhej diya gaya — email check karo' });
+  } catch (err) {
+    console.error('OTP send error:', err.message);
+    res.status(500).json({ error: 'OTP bhejne mein problem aayi' });
+  }
+});
+
+// POST /api/auth/verify-otp
+// Body: { email, otp }
+app.post('/api/auth/verify-otp', (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: 'Email aur OTP required hai' });
+
+  const record = otpStore[email.toLowerCase()];
+  if (!record)                        return res.status(400).json({ error: 'Pehle OTP mangao' });
+  if (Date.now() > record.expiresAt)  return res.status(400).json({ error: 'OTP expire ho gaya' });
+  if (record.otp !== otp.toString())  return res.status(400).json({ error: 'OTP galat hai' });
+
+  delete otpStore[email.toLowerCase()]; // one-time use
+  res.json({ message: 'OTP verified', verified: true });
+});
 
 // ════════════════════════════════════════════════════════════════════════════
 // AUTH ROUTES
@@ -86,12 +173,10 @@ app.post('/api/auth/register', async (req, res) => {
   if (!name || !email || !password)
     return res.status(400).json({ error: 'Name, email aur password required hai' });
   try {
-    // Check duplicate email
     const exists = await pool.query('SELECT id FROM users WHERE email=$1', [email.toLowerCase().trim()]);
     if (exists.rows.length)
       return res.status(409).json({ error: 'Yeh email already registered hai' });
 
-    // Check duplicate phone if provided
     if (phone) {
       const phoneExists = await pool.query('SELECT id FROM users WHERE phone=$1', [phone.trim()]);
       if (phoneExists.rows.length)
@@ -115,31 +200,20 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // POST /api/auth/login
-// ✅ Email YA phone number dono se login hoga
 app.post('/api/auth/login', async (req, res) => {
   const { email, phone, password } = req.body;
-
   if ((!email && !phone) || !password)
     return res.status(400).json({ error: 'Email/phone aur password required hai' });
 
   try {
     let result;
     if (email) {
-      // Login with email
-      result = await pool.query(
-        'SELECT * FROM users WHERE email = $1',
-        [email.toLowerCase().trim()]
-      );
+      result = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
     } else {
-      // Login with phone number
-      result = await pool.query(
-        'SELECT * FROM users WHERE phone = $1',
-        [phone.trim()]
-      );
+      result = await pool.query('SELECT * FROM users WHERE phone = $1', [phone.trim()]);
     }
 
     const user = result.rows[0];
-
     if (!user || !(await bcrypt.compare(password, user.password_hash)))
       return res.status(401).json({ error: 'Email/phone ya password galat hai' });
 
@@ -179,12 +253,70 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// FORGOT PASSWORD ROUTES
+// ════════════════════════════════════════════════════════════════════════════
+
+// POST /api/auth/forgot-password
+// Body: { email }
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required hai' });
+
+  try {
+    const result = await pool.query('SELECT id FROM users WHERE email=$1', [email.toLowerCase().trim()]);
+    // Security: user exist kare ya na kare — same response dete hain
+    if (!result.rows[0]) {
+      return res.json({ message: 'Agar email registered hai toh OTP bhej diya gaya' });
+    }
+
+    const otp = generateOTP();
+    otpStore[`forgot:${email.toLowerCase()}`] = {
+      otp,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    };
+
+    await sendOTPEmail(email.toLowerCase(), otp, 'forgot');
+    res.json({ message: 'Password reset OTP bhej diya gaya — email check karo' });
+  } catch (err) {
+    console.error('Forgot password error:', err.message);
+    res.status(500).json({ error: 'OTP bhejne mein problem aayi' });
+  }
+});
+
+// POST /api/auth/reset-password
+// Body: { email, otp, newPassword }
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  if (!email || !otp || !newPassword)
+    return res.status(400).json({ error: 'Email, OTP aur naya password required hai' });
+
+  const key    = `forgot:${email.toLowerCase()}`;
+  const record = otpStore[key];
+
+  if (!record)                       return res.status(400).json({ error: 'Pehle forgot password request karo' });
+  if (Date.now() > record.expiresAt) return res.status(400).json({ error: 'OTP expire ho gaya' });
+  if (record.otp !== otp.toString()) return res.status(400).json({ error: 'OTP galat hai' });
+
+  try {
+    const hash = await bcrypt.hash(newPassword, 10);
+    const result = await pool.query(
+      'UPDATE users SET password_hash=$1 WHERE email=$2 RETURNING id',
+      [hash, email.toLowerCase().trim()]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
+
+    delete otpStore[key];
+    res.json({ message: 'Password successfully reset ho gaya — ab login karo' });
+  } catch (err) {
+    console.error('Reset password error:', err.message);
+    res.status(500).json({ error: 'Password reset failed' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // STATIONS ROUTES (PostGIS + Redis Cache)
 // ════════════════════════════════════════════════════════════════════════════
 
-// GET /api/stations
-// GET /api/stations?search=mp&status=available&charger_type=CCS
-// GET /api/stations?lat=23.23&lng=77.43&radius=5000  ← PostGIS nearest
 app.get('/api/stations', async (req, res) => {
   const { search, status, charger_type, lat, lng, radius } = req.query;
   const cacheKey = `stations:${search||''}:${status||''}:${charger_type||''}:${lat||''}:${lng||''}:${radius||''}`;
@@ -238,7 +370,6 @@ app.get('/api/stations', async (req, res) => {
   }
 });
 
-// GET /api/stations/nearest?lat=23.23&lng=77.43
 app.get('/api/stations/nearest', async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
@@ -264,7 +395,6 @@ app.get('/api/stations/nearest', async (req, res) => {
   }
 });
 
-// GET /api/stations/:id
 app.get('/api/stations/:id', async (req, res) => {
   const cacheKey = `station:${req.params.id}`;
   const cached   = await cacheGet(cacheKey);
@@ -277,7 +407,6 @@ app.get('/api/stations/:id', async (req, res) => {
   } catch { res.status(500).json({ error: 'Failed to fetch station' }); }
 });
 
-// POST /api/stations (admin only)
 app.post('/api/stations', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admins only' });
   const { name, address, latitude, longitude, total_slots, price_per_kwh, charger_types } = req.body;
@@ -298,7 +427,6 @@ app.post('/api/stations', authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE /api/stations/:id (admin only)
 app.delete('/api/stations/:id', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admins only' });
   try {
@@ -315,7 +443,6 @@ app.delete('/api/stations/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// PATCH /api/stations/:id/slots
 app.patch('/api/stations/:id/slots', authMiddleware, async (req, res) => {
   const { available_slots } = req.body;
   if (available_slots === undefined) return res.status(400).json({ error: 'available_slots required' });
@@ -467,7 +594,10 @@ app.get('/api/feedback', async (req, res) => {
     );
     await cacheSet(cacheKey, result.rows, 120);
     res.json(result.rows);
-  } catch { res.status(500).json({ error: 'Failed to fetch feedback' }); }
+  } catch(err) {
+    console.error('Feedback fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch feedback' });
+  }
 });
 
 app.post('/api/feedback', authMiddleware, async (req, res) => {
@@ -481,7 +611,10 @@ app.post('/api/feedback', authMiddleware, async (req, res) => {
     );
     await cacheDel('feedback:*');
     res.status(201).json(result.rows[0]);
-  } catch { res.status(500).json({ error: 'Failed to submit feedback' }); }
+  } catch(err) {
+    console.error('Feedback submit error:', err.message);
+    res.status(500).json({ error: 'Failed to submit feedback' });
+  }
 });
 
 app.post('/api/complaints', authMiddleware, async (req, res) => {
@@ -494,7 +627,10 @@ app.post('/api/complaints', authMiddleware, async (req, res) => {
       [req.user.id, station_id||null, type, priority||'medium', description]
     );
     res.status(201).json(result.rows[0]);
-  } catch { res.status(500).json({ error: 'Failed to file complaint' }); }
+  } catch(err) {
+    console.error('Complaint submit error:', err.message);
+    res.status(500).json({ error: 'Failed to file complaint' });
+  }
 });
 
 app.get('/api/complaints', authMiddleware, async (req, res) => {
@@ -541,7 +677,6 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => console.log(`🔌 Disconnected: ${socket.id}`));
 });
 
-// Simulate real-time slot changes (replace with real IoT in production)
 setInterval(async () => {
   try {
     const stations = (await pool.query("SELECT * FROM stations WHERE status!='offline'")).rows;
@@ -567,8 +702,10 @@ setInterval(async () => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 server.listen(PORT, () => {
-  console.log(`🚀 ChargEase API v3.0 on http://localhost:${PORT}`);
+  console.log(`🚀 ChargEase API v3.1 on http://localhost:${PORT}`);
   console.log(`   ✅ Email + Phone login: enabled`);
+  console.log(`   ✅ OTP via Gmail: enabled`);
+  console.log(`   ✅ Forgot Password: enabled`);
   console.log(`   ✅ PostGIS nearest stations: enabled`);
   console.log(`   ✅ Redis cache: enabled`);
   console.log(`   ✅ Socket.IO real-time: enabled`);
