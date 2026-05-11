@@ -91,7 +91,7 @@ async function sendOTPEmail(email, otp, purpose = 'verification') {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      sender: { name: 'ChargEase', email: process.env.BREVO_USER },
+      sender: { name: 'ChargEase', email: 'abhitiwari180745@gmail.com' },
       to: [{ email: email }],
       subject: subject,
       htmlContent: html,
